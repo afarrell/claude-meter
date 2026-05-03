@@ -6,12 +6,13 @@ Minimal Claude Code statusline written in Rust. Renders three things:
 - **5-hour bar** — Anthropic's 5h rate-limit window (one spark char, color-coded by pace)
 - **7-day sparkline** — rolling weekly utilization across the last 7 days (seven spark chars)
 
-```
-opus ▃▂ ▂▃▄▄▅▇█
-     │└─ 5h
-     └── ctx
-            └─ d7 (per-day peaks, dim baseline = on-pace projection)
-```
+![statusline preview](docs/statusline.svg)
+
+Reading left to right: **model**, then a single char for **context-window
+%**, then a single char for the **5-hour rate-limit window**, then the
+**7-day rolling sparkline**. In the sparkline, dim cells are the on-pace
+baseline projection (no observation yet for that day), the brighter cells
+are observed daily peaks, and the brightest cell is today.
 
 ## Why this exists
 
@@ -108,9 +109,7 @@ The vertical-bar spark idea (mapping a 0–100% percentage to one of eight
 Unicode bar characters) comes from
 [`tiny-claude-statusline`](https://github.com/csabapalfi/tiny-claude-statusline)
 by [Csaba Palfi](https://github.com/csabapalfi) — a great little script that
-got me started. Everything else in claude-meter — the 7-day rolling
-sparkline, the per-day bucket history with peak-tracking, the pace-aware
-color tiers, the cycle-math, the layout, and the test suite — is mine.
+got me started.
 
 ## License
 

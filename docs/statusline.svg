@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 70" width="480" height="70" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
+  <!-- Terminal-like dark pill so the colors render predictably in both GitHub themes -->
+  <rect x="0" y="0" width="480" height="70" rx="8" fill="#161b22"/>
+
+  <!-- Color tiers, matching the binary's ANSI output:
+         #6e6e6e  — ctx + h5 (grey 90)         | model name + the two left bars
+         #3a3a3a  — null / baseline (grey 238) | future-day projection or no-data
+         #8a8a8a  — past-day peaks (grey 241)  | observed daily peaks
+         #ffffff  — current day (default fg)   | "today" in the cycle -->
+  <text x="24" y="46" font-size="28" xml:space="preserve">
+    <tspan fill="#6e6e6e">opus </tspan><tspan fill="#6e6e6e">▃</tspan><tspan fill="#6e6e6e">▂</tspan><tspan fill="#3a3a3a"> </tspan><tspan fill="#3a3a3a">▂</tspan><tspan fill="#8a8a8a">▃▄▄</tspan><tspan fill="#ffffff">▅</tspan><tspan fill="#3a3a3a">▇█</tspan>
+  </text>
+</svg>
