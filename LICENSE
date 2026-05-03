@@ -2,11 +2,6 @@ MIT License
 
 Copyright (c) 2026 Alex Farrell
 
-The percentage-to-spark-character bar mapping (eight Unicode block heights
-indexed by `pct * 8 / 101`) was adopted from `tiny-claude-statusline`
-(https://github.com/csabapalfi/tiny-claude-statusline) by Csaba Palfi,
-also MIT-licensed (Copyright (c) 2026 Csaba Palfi).
-
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights

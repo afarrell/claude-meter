@@ -114,4 +114,4 @@ color tiers, the cycle-math, the layout, and the test suite — is mine.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE). Third-party attribution is in [NOTICE](NOTICE).

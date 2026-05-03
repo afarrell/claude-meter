@@ -1,0 +1,11 @@
+claude-meter
+Copyright (c) 2026 Alex Farrell
+
+This product includes a percentage-to-spark-character bar mapping (eight
+Unicode block heights indexed by `pct * 8 / 101`) adopted from
+tiny-claude-statusline (https://github.com/csabapalfi/tiny-claude-statusline)
+by Csaba Palfi, also MIT-licensed (Copyright (c) 2026 Csaba Palfi).
+
+Everything else in this repository — the 7-day rolling sparkline, per-day
+bucket history with peak-tracking, pace-aware color tiers, cycle math,
+layout, and test suite — is original work by Alex Farrell.
