@@ -1,4 +1,0 @@
-src/main.rs:18:5: replace main with ()
-src/main.rs:27:5: replace run -> Result<()> with Ok(())
-src/main.rs:52:5: replace read_stdin -> Result<String> with Ok(String::new())
-src/main.rs:52:5: replace read_stdin -> Result<String> with Ok("xyzzy".into())
