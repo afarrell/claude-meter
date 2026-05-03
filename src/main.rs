@@ -9,7 +9,7 @@
 
 use anyhow::{Context, Result};
 use chrono::Utc;
-use claude_statusline::{render, ApiCache, History, StatuslineInput};
+use claude_meter::{render, ApiCache, History, StatuslineInput};
 use serde_json::Value;
 use std::env;
 use std::io::{self, Read, Write};
@@ -18,7 +18,7 @@ fn main() {
     if let Err(e) = run() {
         // A failed render shouldn't break the user's terminal — log to stderr
         // and exit cleanly so the harness still gets *something* on stdout.
-        eprintln!("claude-statusline: {e:#}");
+        eprintln!("claude-meter: {e:#}");
         std::process::exit(0);
     }
 }

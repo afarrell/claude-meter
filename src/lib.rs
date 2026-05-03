@@ -44,7 +44,7 @@ pub fn render(
     let ctx_out = format!("{}{} {}", bar::ctx_color(ctx_pct), model_short, bar::bar(ctx_pct));
 
     format!(
-        "{}{} {}{}   {}{}",
+        "{}{}{}{} {}{}",
         ctx_out,
         bar::RESET,
         h5_out,

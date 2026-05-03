@@ -1,7 +1,12 @@
 [package]
-name = "claude-statusline"
+name = "claude-meter"
 version = "0.1.0"
 edition = "2024"
+license = "MIT"
+description = "Minimal Claude Code statusline — context bar, 5h bar, and 7-day rolling sparkline."
+repository = "https://github.com/afarrell/claude-meter"
+authors = ["Alex Farrell <alex_farrell@mac.com>"]
+readme = "README.md"
 
 [dependencies]
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }

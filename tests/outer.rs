@@ -5,7 +5,7 @@
 //! memory, render N times, and inspect the resulting history struct.
 
 use chrono::{DateTime, TimeZone, Utc};
-use claude_statusline::{render, ApiCache, History, StatuslineInput};
+use claude_meter::{render, ApiCache, History, StatuslineInput};
 
 fn input(pct: u32) -> StatuslineInput {
     StatuslineInput {
@@ -18,11 +18,11 @@ fn input(pct: u32) -> StatuslineInput {
 
 fn cache_with_d7(pct: f64, resets_at: &str) -> ApiCache {
     ApiCache {
-        five_hour: claude_statusline::Window {
+        five_hour: claude_meter::Window {
             utilization: 0.0,
             resets_at: Some("2030-01-01T00:00:00+00:00".parse().unwrap()),
         },
-        seven_day: claude_statusline::Window {
+        seven_day: claude_meter::Window {
             utilization: pct,
             resets_at: Some(resets_at.parse().unwrap()),
         },
@@ -154,4 +154,53 @@ fn render_produces_nonempty_output_with_model_name() {
 
     assert!(out.contains("opus"), "model short-name missing: {out:?}");
     assert!(!out.is_empty());
+}
+
+/// Layout pin: `<model> <ctx-bar><h5-bar> <d7-sparkline>`.
+/// Two spaces total — between model and the left meter pair, and between
+/// that pair and the weekly sparkline. The ctx-bar and h5-bar sit flush
+/// together so they read as a unified "current limits" group.
+#[test]
+fn layout_groups_left_meters_and_separates_d7() {
+    let cache = cache_with_d7(40.0, "2030-01-01T00:00:00+00:00");
+    let mut history = History::default();
+    let now = Utc.with_ymd_and_hms(2026, 5, 3, 12, 0, 0).unwrap();
+    let out = render(&input(35), now, &cache, &mut history);
+
+    let plain = strip_ansi(&out);
+
+    let parts: Vec<&str> = plain.split(' ').collect();
+    assert_eq!(parts.len(), 3, "expected 3 space-separated groups, got {parts:?}");
+    assert_eq!(parts[0], "opus");
+    assert_eq!(
+        parts[1].chars().count(),
+        2,
+        "left meter pair (ctx + h5, no space): {:?}",
+        parts[1]
+    );
+    assert_eq!(parts[2].chars().count(), 7, "d7 sparkline is 7 chars: {:?}", parts[2]);
+
+    assert!(
+        !plain.contains("  "),
+        "layout has stray double-space: {plain:?}"
+    );
+}
+
+/// Strip ANSI escape sequences (color codes) from a string for layout testing.
+fn strip_ansi(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\x1b' && chars.peek() == Some(&'[') {
+            chars.next(); // consume '['
+            for c2 in chars.by_ref() {
+                if c2.is_ascii_alphabetic() {
+                    break;
+                }
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    out
 }
