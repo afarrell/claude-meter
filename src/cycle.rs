@@ -191,6 +191,32 @@ mod tests {
         assert_eq!(cs, prev, "7d + 30s drift should still use prev_reset");
     }
 
+    #[test]
+    fn cycle_start_falls_back_just_past_7d_plus_tolerance() {
+        // prev is past the (SEVEN_DAYS_S + CYCLE_MATCH_TOLERANCE_S) gate.
+        // Pins the `+` between SEVEN_DAYS_S and CYCLE_MATCH_TOLERANCE_S
+        // — a `*` mutation here would silently widen the gate to ~10 years.
+        let prev = 1_700_000_000;
+        let reset_ts = prev + SEVEN_DAYS_S + CYCLE_MATCH_TOLERANCE_S + 1;
+        let history = h(vec![(prev, [None; 7])]);
+        let cs = cycle_start_for_reset(reset_ts, &history);
+        assert_eq!(
+            cs,
+            reset_ts - SEVEN_DAYS_S,
+            "should cold-start when prev is past 7d + tolerance gate"
+        );
+    }
+
+    #[test]
+    fn cycle_start_uses_prev_at_exact_7d_plus_tolerance() {
+        // Boundary: exactly at 7d + tolerance still counts as in-window.
+        let prev = 1_700_000_000;
+        let reset_ts = prev + SEVEN_DAYS_S + CYCLE_MATCH_TOLERANCE_S;
+        let history = h(vec![(prev, [None; 7])]);
+        let cs = cycle_start_for_reset(reset_ts, &history);
+        assert_eq!(cs, prev, "exact boundary value should still use prev_reset");
+    }
+
     // ---------- bucket_idx ----------
 
     #[test]

@@ -1,0 +1,21 @@
+--- src/lib.rs
++++ replace + with - in render_d7
+@@ -99,17 +99,17 @@
+     } else {
+         "\x1b[0m"
+     };
+ 
+     let mut out = String::new();
+     for (i, cell) in display.iter().enumerate() {
+         match cell {
+             None => {
+-                let expected = ((i + 1) * 100 / 7) as u8;
++                let expected = ((i - /* ~ changed by cargo-mutants ~ */ 1) * 100 / 7) as u8;
+                 out.push_str(bar::DIM);
+                 out.push(bar::bar(expected));
+             }
+             Some(v) if i == idx => {
+                 out.push_str(current_color);
+                 out.push(bar::bar(*v));
+             }
+             Some(v) => {

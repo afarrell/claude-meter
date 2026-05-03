@@ -1,0 +1,23 @@
+--- src/cycle.rs
++++ replace append_new_cycle with ()
+@@ -76,19 +76,17 @@
+         None => pct,
+     };
+     buckets[idx] = Some(new);
+     new
+ }
+ 
+ /// Append a brand-new cycle entry to history with `pct` written at `idx`.
+ pub fn append_new_cycle(history: &mut History, reset_ts: i64, idx: usize, pct: u8) {
+-    let mut buckets: [Option<u8>; 7] = [None; 7];
+-    buckets[idx] = Some(pct);
+-    history.cycles.push(Cycle { reset: reset_ts, buckets });
++    () /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ /// Forward-fill nulls in past positions for rendering. A null past bucket
+ /// means we made no observation that day; we inherit the prior day's value
+ /// as a lower bound rather than rendering a misleading zero.
+ ///
+ /// Only operates on positions `1..=current_idx`. The "current" and "future"
+ /// positions are left untouched.

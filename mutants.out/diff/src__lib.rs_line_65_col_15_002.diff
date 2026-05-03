@@ -1,0 +1,21 @@
+--- src/lib.rs
++++ replace > with >= in render_d7
+@@ -57,17 +57,17 @@
+ /// Render the D7 sparkline and update history with the current observation.
+ fn render_d7(window: &Window, history: &mut History, now_ts: i64) -> String {
+     let reset_ts = match window.resets_at {
+         Some(dt) => dt.timestamp(),
+         None => return format!("{}{}", bar::PAST, bar::bar(window.utilization as u8)),
+     };
+ 
+     // Stale: reset is in the past (window has rolled over but cache wasn't refreshed).
+-    if now_ts > reset_ts {
++    if now_ts >= /* ~ changed by cargo-mutants ~ */ reset_ts {
+         let pct = window.utilization as u8;
+         if pct == 0 {
+             return format!("{}·······", bar::GREY);
+         }
+         return format!("{}███████", bar::RED_BOLD);
+     }
+ 
+     let cycle_start = cycle::cycle_start_for_reset(reset_ts, history);

@@ -1,0 +1,21 @@
+--- src/lib.rs
++++ replace == with != in render_h5
+@@ -124,17 +124,17 @@
+ /// Render the H5 five-hour bar with pace coloring.
+ fn render_h5(window: &Window, now_ts: i64) -> String {
+     let pct = window.utilization as u8;
+     let reset_ts = match window.resets_at {
+         Some(dt) => dt.timestamp(),
+         None => return format!("{}{}", bar::PAST, bar::bar(pct)),
+     };
+     if now_ts > reset_ts {
+-        if pct == 0 {
++        if pct != /* ~ changed by cargo-mutants ~ */ 0 {
+             return format!("{}{}", bar::GREY, bar::bar(0));
+         }
+         return format!("{}{}", bar::RED_BOLD, bar::bar(100));
+     }
+     if pct >= 90 {
+         return format!("{}{}", bar::RED_BOLD, bar::bar(pct));
+     }
+     let elapsed = now_ts - (reset_ts - 18_000);

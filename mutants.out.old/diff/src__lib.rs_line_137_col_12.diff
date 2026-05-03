@@ -1,0 +1,21 @@
+--- src/lib.rs
++++ replace >= with < in render_h5
+@@ -129,17 +129,17 @@
+         None => return format!("{}{}", bar::PAST, bar::bar(pct)),
+     };
+     if now_ts > reset_ts {
+         if pct == 0 {
+             return format!("{}{}", bar::GREY, bar::bar(0));
+         }
+         return format!("{}{}", bar::RED_BOLD, bar::bar(100));
+     }
+-    if pct >= 90 {
++    if pct < /* ~ changed by cargo-mutants ~ */ 90 {
+         return format!("{}{}", bar::RED_BOLD, bar::bar(pct));
+     }
+     let elapsed = now_ts - (reset_ts - 18_000);
+     let elapsed_pct = (elapsed * 100 / 18_000) as i32;
+     let delta = (pct as i32) - elapsed_pct;
+     let delta_clamped = delta.clamp(0, 100);
+     format!("{}{}", bar::pace_color(delta_clamped), bar::bar(pct))
+ }

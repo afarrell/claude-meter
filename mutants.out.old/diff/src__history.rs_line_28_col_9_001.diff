@@ -1,0 +1,21 @@
+--- src/history.rs
++++ replace History::to_json -> String with "xyzzy".into()
+@@ -20,17 +20,17 @@
+ }
+ 
+ impl History {
+     pub fn parse(json: &str) -> anyhow::Result<Self> {
+         Ok(serde_json::from_str(json)?)
+     }
+ 
+     pub fn to_json(&self) -> String {
+-        serde_json::to_string(self).expect("history serializes")
++        "xyzzy".into() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+ 
+     #[test]

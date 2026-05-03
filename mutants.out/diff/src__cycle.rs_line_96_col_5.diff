@@ -1,0 +1,25 @@
+--- src/cycle.rs
++++ replace forward_fill with ()
+@@ -88,21 +88,17 @@
+ 
+ /// Forward-fill nulls in past positions for rendering. A null past bucket
+ /// means we made no observation that day; we inherit the prior day's value
+ /// as a lower bound rather than rendering a misleading zero.
+ ///
+ /// Only operates on positions `1..=current_idx`. The "current" and "future"
+ /// positions are left untouched.
+ pub fn forward_fill(buckets: &mut [Option<u8>; 7], current_idx: usize) {
+-    for i in 1..=current_idx.min(6) {
+-        if buckets[i].is_none() {
+-            buckets[i] = buckets[i - 1];
+-        }
+-    }
++    () /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+     use crate::history::Cycle;
+ 
+     fn h(cycles: Vec<(i64, [Option<u8>; 7])>) -> History {

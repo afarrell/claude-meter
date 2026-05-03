@@ -1,0 +1,21 @@
+--- src/bar.rs
++++ replace > with >= in pace_color
+@@ -27,17 +27,17 @@
+     if pct >= 80 { RED_BOLD }
+     else if pct >= 50 { YELLOW_BOLD }
+     else { GREY }
+ }
+ 
+ /// Color tier for pace warnings (delta = utilization - elapsed%).
+ pub fn pace_color(delta: i32) -> &'static str {
+     if delta > 30 { RED_BOLD }
+-    else if delta > 10 { YELLOW_BOLD }
++    else if delta >= /* ~ changed by cargo-mutants ~ */ 10 { YELLOW_BOLD }
+     else { GREY }
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+ 
+     #[test]

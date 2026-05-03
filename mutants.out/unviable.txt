@@ -1,0 +1,2 @@
+src/main.rs:60:5: replace parse_input -> Result<StatuslineInput> with Ok(Default::default())
+src/cache.rs:29:9: replace ApiCache::parse -> anyhow::Result<Self> with Ok(Default::default())

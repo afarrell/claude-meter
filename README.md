@@ -73,6 +73,18 @@ cargo test
 If a future change reintroduces either of the bugs above, the tests will
 spell it out by name in the failure output.
 
+### Mutation testing
+
+```bash
+cargo install cargo-mutants
+cargo mutants
+```
+
+The library catches 117 of 121 viable mutants (97%). The 4 remaining
+mutants all live in `main.rs` (orchestration: `main`, `run`,
+`read_stdin`) — they're covered by running the binary against the live
+status line, not by unit tests.
+
 ## Install
 
 ```bash

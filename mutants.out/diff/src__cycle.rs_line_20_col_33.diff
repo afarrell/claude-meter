@@ -1,0 +1,21 @@
+--- src/cycle.rs
++++ replace * with +
+@@ -12,17 +12,17 @@
+ 
+ /// Cycles are considered "the same" if their reset timestamps are within
+ /// this many seconds. The Anthropic API drifts the reset timestamp by a
+ /// second or two between calls; without this slack we'd treat every drift
+ /// as a brand-new cycle.
+ pub const CYCLE_MATCH_TOLERANCE_S: i64 = 60;
+ 
+ /// Standard 7-day cycle length in seconds.
+-pub const SEVEN_DAYS_S: i64 = 7 * 86_400;
++pub const SEVEN_DAYS_S: i64 = 7 + /* ~ changed by cargo-mutants ~ */ 86_400;
+ 
+ /// Find the start of the cycle that contains `reset_ts`.
+ ///
+ /// Strategy: use the most recent prior cycle's reset as our cycle_start,
+ /// provided it's "clearly older" (more than CYCLE_MATCH_TOLERANCE_S
+ /// seconds before `reset_ts`) and within 7 days. Otherwise treat this
+ /// cycle as a cold start spanning `reset_ts - 7d` to `reset_ts`.
+ ///

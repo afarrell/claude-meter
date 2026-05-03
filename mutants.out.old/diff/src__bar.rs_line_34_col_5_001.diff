@@ -1,0 +1,23 @@
+--- src/bar.rs
++++ replace pace_color -> &'static str with "xyzzy"
+@@ -26,19 +26,17 @@
+ pub fn ctx_color(pct: u8) -> &'static str {
+     if pct >= 80 { RED_BOLD }
+     else if pct >= 50 { YELLOW_BOLD }
+     else { GREY }
+ }
+ 
+ /// Color tier for pace warnings (delta = utilization - elapsed%).
+ pub fn pace_color(delta: i32) -> &'static str {
+-    if delta > 30 { RED_BOLD }
+-    else if delta > 10 { YELLOW_BOLD }
+-    else { GREY }
++    "xyzzy" /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+ 
+     #[test]
+     fn bar_lowest_chars_for_low_pct() {

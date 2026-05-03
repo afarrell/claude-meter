@@ -1,0 +1,23 @@
+--- src/main.rs
++++ replace read_stdin -> Result<String> with Ok("xyzzy".into())
+@@ -44,19 +44,17 @@
+     std::fs::rename(&tmp_path, &history_path)?;
+ 
+     io::stdout().write_all(output.as_bytes())?;
+     io::stdout().write_all(b"\n")?;
+     Ok(())
+ }
+ 
+ fn read_stdin() -> Result<String> {
+-    let mut s = String::new();
+-    io::stdin().read_to_string(&mut s)?;
+-    Ok(s)
++    Ok("xyzzy".into()) /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ /// Parse the Claude Code statusline JSON payload tolerantly — unexpected
+ /// fields shouldn't break us as the harness adds optional fields over time.
+ fn parse_input(json: &str) -> Result<StatuslineInput> {
+     let v: Value = serde_json::from_str(json).context("parsing stdin JSON")?;
+     Ok(StatuslineInput {
+         session_id: v

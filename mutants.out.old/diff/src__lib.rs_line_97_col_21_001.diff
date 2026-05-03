@@ -1,0 +1,21 @@
+--- src/lib.rs
++++ replace > with < in render_d7
+@@ -89,17 +89,17 @@
+ 
+     let mut display = buckets_for_render;
+     cycle::forward_fill(&mut display, idx);
+ 
+     let elapsed_pct = ((now_ts - cycle_start) * 100 / cycle_len) as i32;
+     let delta = (pct as i32) - elapsed_pct;
+     let current_color = if pct >= 90 || delta > 30 {
+         bar::RED_BOLD
+-    } else if delta > 10 {
++    } else if delta < /* ~ changed by cargo-mutants ~ */ 10 {
+         bar::YELLOW_BOLD
+     } else {
+         "\x1b[0m"
+     };
+ 
+     let mut out = String::new();
+     for (i, cell) in display.iter().enumerate() {
+         match cell {

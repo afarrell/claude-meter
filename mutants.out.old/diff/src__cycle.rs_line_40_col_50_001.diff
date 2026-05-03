@@ -1,0 +1,21 @@
+--- src/cycle.rs
++++ replace < with > in cycle_start_for_reset
+@@ -32,17 +32,17 @@
+ /// pinned bucket index to 0, and combined with the daily-max guard
+ /// caused the leftmost bar to grow on every render. See the
+ /// `drift_does_not_collapse_idx_to_zero` outer test.
+ pub fn cycle_start_for_reset(reset_ts: i64, history: &History) -> i64 {
+     let prev = history
+         .cycles
+         .iter()
+         .map(|c| c.reset)
+-        .filter(|&r| r + CYCLE_MATCH_TOLERANCE_S < reset_ts)
++        .filter(|&r| r + CYCLE_MATCH_TOLERANCE_S > /* ~ changed by cargo-mutants ~ */ reset_ts)
+         .max();
+ 
+     match prev {
+         Some(p) if reset_ts - p <= SEVEN_DAYS_S + CYCLE_MATCH_TOLERANCE_S => p,
+         _ => reset_ts - SEVEN_DAYS_S,
+     }
+ }
+ 

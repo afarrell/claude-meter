@@ -1,0 +1,21 @@
+--- src/cycle.rs
++++ replace + with - in cycle_start_for_reset
+@@ -36,17 +36,17 @@
+     let prev = history
+         .cycles
+         .iter()
+         .map(|c| c.reset)
+         .filter(|&r| r + CYCLE_MATCH_TOLERANCE_S < reset_ts)
+         .max();
+ 
+     match prev {
+-        Some(p) if reset_ts - p <= SEVEN_DAYS_S + CYCLE_MATCH_TOLERANCE_S => p,
++        Some(p) if reset_ts - p <= SEVEN_DAYS_S - /* ~ changed by cargo-mutants ~ */ CYCLE_MATCH_TOLERANCE_S => p,
+         _ => reset_ts - SEVEN_DAYS_S,
+     }
+ }
+ 
+ /// Compute the bucket index for `now` within a cycle running from
+ /// `cycle_start` to `cycle_start + cycle_len`. Returns 0..=6.
+ pub fn bucket_idx(now: i64, cycle_start: i64, cycle_len: i64) -> usize {
+     let bucket_size = (cycle_len / 7).max(60);

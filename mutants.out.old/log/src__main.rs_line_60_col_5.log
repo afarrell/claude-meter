@@ -1,0 +1,103 @@
+
+*** src/main.rs:60:5: replace parse_input -> Result<StatuslineInput> with Ok(Default::default())
+
+*** mutation diff:
+--- src/main.rs
++++ replace parse_input -> Result<StatuslineInput> with Ok(Default::default())
+@@ -52,34 +52,10 @@
+     let mut s = String::new();
+     io::stdin().read_to_string(&mut s)?;
+     Ok(s)
+ }
+ 
+ /// Parse the Claude Code statusline JSON payload tolerantly — unexpected
+ /// fields shouldn't break us as the harness adds optional fields over time.
+ fn parse_input(json: &str) -> Result<StatuslineInput> {
+-    let v: Value = serde_json::from_str(json).context("parsing stdin JSON")?;
+-    Ok(StatuslineInput {
+-        session_id: v
+-            .get("session_id")
+-            .and_then(|x| x.as_str())
+-            .unwrap_or("")
+-            .to_string(),
+-        model_id: v
+-            .get("model")
+-            .and_then(|m| m.get("id"))
+-            .and_then(|x| x.as_str())
+-            .unwrap_or("")
+-            .to_string(),
+-        context_pct: v
+-            .get("context_window")
+-            .and_then(|c| c.get("used_percentage"))
+-            .and_then(|x| x.as_f64())
+-            .unwrap_or(0.0) as u32,
+-        cwd: v
+-            .get("workspace")
+-            .and_then(|w| w.get("current_dir"))
+-            .and_then(|x| x.as_str())
+-            .unwrap_or("")
+-            .to_string(),
+-    })
++    Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+ }
+
+
+*** /Users/alex/.rustup/toolchains/1.94.0-aarch64-apple-darwin/bin/cargo test --no-run --verbose --package=claude-meter@0.1.0
+       Fresh unicode-ident v1.0.24
+       Fresh autocfg v1.5.0
+       Fresh core-foundation-sys v0.8.7
+       Fresh itoa v1.0.18
+       Fresh memchr v2.8.0
+       Fresh cfg-if v1.0.4
+       Fresh bitflags v2.11.1
+       Fresh fastrand v2.4.1
+       Fresh once_cell v1.21.4
+       Fresh proc-macro2 v1.0.106
+       Fresh iana-time-zone v0.1.65
+       Fresh quote v1.0.45
+       Fresh serde_core v1.0.228
+       Fresh libc v0.2.186
+       Fresh zmij v1.0.21
+       Fresh anyhow v1.0.102
+       Fresh syn v2.0.117
+       Fresh num-traits v0.2.19
+       Fresh serde_json v1.0.149
+       Fresh errno v0.3.14
+       Fresh getrandom v0.4.2
+       Fresh serde_derive v1.0.228
+       Fresh rustix v1.1.4
+       Fresh serde v1.0.228
+       Fresh tempfile v3.27.0
+       Fresh chrono v0.4.44
+       Dirty claude-meter v0.1.0 (/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp): the file `src/main.rs` has changed (1777847547.676484180s, 2s after last build at 1777847545.407673340s)
+   Compiling claude-meter v0.1.0 (/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp)
+     Running `/Users/alex/.rustup/toolchains/1.94.0-aarch64-apple-darwin/bin/rustc --crate-name claude_meter --edition=2024 src/main.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=df2a3076a0cd2a51 -C extra-filename=-c31b6abcefc58389 --out-dir /private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps -C incremental=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/incremental -L dependency=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps --extern anyhow=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps/libanyhow-1dce37a318ac7e8f.rlib --extern chrono=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps/libchrono-4d37352f04c69f14.rlib --extern claude_meter=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps/libclaude_meter-5d6516020fee478f.rlib --extern serde=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps/libserde-0b59a478a8523a78.rlib --extern serde_json=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps/libserde_json-5a8254ac69982083.rlib --extern tempfile=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps/libtempfile-4dcbda5dc1940294.rlib`
+     Running `/Users/alex/.rustup/toolchains/1.94.0-aarch64-apple-darwin/bin/rustc --crate-name claude_meter --edition=2024 src/main.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type bin --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=11c24a30b9c43cc8 -C extra-filename=-a771cf2bab6c207c --out-dir /private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps -C incremental=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/incremental -L dependency=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps --extern anyhow=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps/libanyhow-1dce37a318ac7e8f.rlib --extern chrono=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps/libchrono-4d37352f04c69f14.rlib --extern claude_meter=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps/libclaude_meter-5d6516020fee478f.rlib --extern serde=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps/libserde-0b59a478a8523a78.rlib --extern serde_json=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps/libserde_json-5a8254ac69982083.rlib`
+warning: unused import: `serde_json::Value`
+  --> src/main.rs:13:5
+   |
+13 | use serde_json::Value;
+   |     ^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+error[E0277]: the trait bound `StatuslineInput: Default` is not satisfied
+  --> src/main.rs:60:8
+   |
+60 |     Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+   |        ^^^^^^^^^^^^^^^^^^ the trait `Default` is not implemented for `StatuslineInput`
+
+For more information about this error, try `rustc --explain E0277`.
+warning: `claude-meter` (bin "claude-meter" test) generated 1 warning (1 duplicate)
+error: could not compile `claude-meter` (bin "claude-meter" test) due to 1 previous error; 1 warning emitted
+
+Caused by:
+  process didn't exit successfully: `/Users/alex/.rustup/toolchains/1.94.0-aarch64-apple-darwin/bin/rustc --crate-name claude_meter --edition=2024 src/main.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=df2a3076a0cd2a51 -C extra-filename=-c31b6abcefc58389 --out-dir /private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps -C incremental=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/incremental -L dependency=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps --extern anyhow=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps/libanyhow-1dce37a318ac7e8f.rlib --extern chrono=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps/libchrono-4d37352f04c69f14.rlib --extern claude_meter=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps/libclaude_meter-5d6516020fee478f.rlib --extern serde=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps/libserde-0b59a478a8523a78.rlib --extern serde_json=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps/libserde_json-5a8254ac69982083.rlib --extern tempfile=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps/libtempfile-4dcbda5dc1940294.rlib` (exit status: 1)
+warning: build failed, waiting for other jobs to finish...
+warning: `claude-meter` (bin "claude-meter") generated 1 warning
+error: could not compile `claude-meter` (bin "claude-meter") due to 1 previous error; 1 warning emitted
+
+Caused by:
+  process didn't exit successfully: `/Users/alex/.rustup/toolchains/1.94.0-aarch64-apple-darwin/bin/rustc --crate-name claude_meter --edition=2024 src/main.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type bin --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=11c24a30b9c43cc8 -C extra-filename=-a771cf2bab6c207c --out-dir /private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps -C incremental=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/incremental -L dependency=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps --extern anyhow=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps/libanyhow-1dce37a318ac7e8f.rlib --extern chrono=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps/libchrono-4d37352f04c69f14.rlib --extern claude_meter=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps/libclaude_meter-5d6516020fee478f.rlib --extern serde=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps/libserde-0b59a478a8523a78.rlib --extern serde_json=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-rc66d5.tmp/target/debug/deps/libserde_json-5a8254ac69982083.rlib` (exit status: 1)
+
+*** result: Failure(101)

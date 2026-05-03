@@ -1,0 +1,23 @@
+--- src/cycle.rs
++++ replace bucket_idx -> usize with 0
+@@ -44,19 +44,17 @@
+         Some(p) if reset_ts - p <= SEVEN_DAYS_S + CYCLE_MATCH_TOLERANCE_S => p,
+         _ => reset_ts - SEVEN_DAYS_S,
+     }
+ }
+ 
+ /// Compute the bucket index for `now` within a cycle running from
+ /// `cycle_start` to `cycle_start + cycle_len`. Returns 0..=6.
+ pub fn bucket_idx(now: i64, cycle_start: i64, cycle_len: i64) -> usize {
+-    let bucket_size = (cycle_len / 7).max(60);
+-    let elapsed = (now - cycle_start).max(0);
+-    ((elapsed / bucket_size) as usize).min(6)
++    0 /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ /// Locate the cycle in history matching `reset_ts` within tolerance.
+ /// Returns the cycle's index in `history.cycles` if found.
+ pub fn match_cycle(reset_ts: i64, history: &History) -> Option<usize> {
+     history
+         .cycles
+         .iter()

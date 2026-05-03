@@ -1,0 +1,23 @@
+--- src/bar.rs
++++ replace ctx_color -> &'static str with ""
+@@ -19,19 +19,17 @@
+ pub const RED_BOLD: &str = "\x1b[1;31m";
+ pub const YELLOW_BOLD: &str = "\x1b[1;33m";
+ pub const GREY: &str = "\x1b[90m";
+ pub const DIM: &str = "\x1b[38;5;238m";
+ pub const PAST: &str = "\x1b[38;5;241m";
+ 
+ /// Color tier for the context-window bar.
+ pub fn ctx_color(pct: u8) -> &'static str {
+-    if pct >= 80 { RED_BOLD }
+-    else if pct >= 50 { YELLOW_BOLD }
+-    else { GREY }
++    "" /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ /// Color tier for pace warnings (delta = utilization - elapsed%).
+ pub fn pace_color(delta: i32) -> &'static str {
+     if delta > 30 { RED_BOLD }
+     else if delta > 10 { YELLOW_BOLD }
+     else { GREY }
+ }

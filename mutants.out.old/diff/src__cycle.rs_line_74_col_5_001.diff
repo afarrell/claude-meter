@@ -1,0 +1,26 @@
+--- src/cycle.rs
++++ replace apply_max_guard -> u8 with 1
+@@ -66,22 +66,17 @@
+ /// Update the bucket at `idx` with `pct` using the daily-peak rule:
+ /// keep `max(stored, pct)`. Returns the new value stored.
+ ///
+ /// This is the per-day peak invariant. Multiple renders during a single
+ /// day can vary in the reported `pct` (rolling-window noise, mid-day
+ /// dips); we keep only the highest. See the
+ /// `max_guard_keeps_daily_peak_across_intraday_renders` outer test.
+ pub fn apply_max_guard(buckets: &mut [Option<u8>; 7], idx: usize, pct: u8) -> u8 {
+-    let new = match buckets[idx] {
+-        Some(stored) => stored.max(pct),
+-        None => pct,
+-    };
+-    buckets[idx] = Some(new);
+-    new
++    1 /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ /// Append a brand-new cycle entry to history with `pct` written at `idx`.
+ pub fn append_new_cycle(history: &mut History, reset_ts: i64, idx: usize, pct: u8) {
+     let mut buckets: [Option<u8>; 7] = [None; 7];
+     buckets[idx] = Some(pct);
+     history.cycles.push(Cycle { reset: reset_ts, buckets });
+ }

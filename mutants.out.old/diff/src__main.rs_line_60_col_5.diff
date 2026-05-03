@@ -1,0 +1,38 @@
+--- src/main.rs
++++ replace parse_input -> Result<StatuslineInput> with Ok(Default::default())
+@@ -52,34 +52,10 @@
+     let mut s = String::new();
+     io::stdin().read_to_string(&mut s)?;
+     Ok(s)
+ }
+ 
+ /// Parse the Claude Code statusline JSON payload tolerantly — unexpected
+ /// fields shouldn't break us as the harness adds optional fields over time.
+ fn parse_input(json: &str) -> Result<StatuslineInput> {
+-    let v: Value = serde_json::from_str(json).context("parsing stdin JSON")?;
+-    Ok(StatuslineInput {
+-        session_id: v
+-            .get("session_id")
+-            .and_then(|x| x.as_str())
+-            .unwrap_or("")
+-            .to_string(),
+-        model_id: v
+-            .get("model")
+-            .and_then(|m| m.get("id"))
+-            .and_then(|x| x.as_str())
+-            .unwrap_or("")
+-            .to_string(),
+-        context_pct: v
+-            .get("context_window")
+-            .and_then(|c| c.get("used_percentage"))
+-            .and_then(|x| x.as_f64())
+-            .unwrap_or(0.0) as u32,
+-        cwd: v
+-            .get("workspace")
+-            .and_then(|w| w.get("current_dir"))
+-            .and_then(|x| x.as_str())
+-            .unwrap_or("")
+-            .to_string(),
+-    })
++    Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+ }

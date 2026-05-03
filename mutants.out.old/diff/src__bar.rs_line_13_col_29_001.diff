@@ -1,0 +1,21 @@
+--- src/bar.rs
++++ replace * with / in bar
+@@ -5,17 +5,17 @@
+ 
+ /// 8 spark characters from low to high.
+ pub const SPARK_CHARS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+ 
+ /// Pick a spark character for a percentage in 0..=100.
+ /// Matches the bash mapping: `${BARS:$((v * 8 / 101)):1}`.
+ pub fn bar(pct: u8) -> char {
+     let pct = pct.min(100);
+-    let idx = (pct as usize * 8) / 101;
++    let idx = (pct as usize / /* ~ changed by cargo-mutants ~ */ 8) / 101;
+     SPARK_CHARS[idx]
+ }
+ 
+ // ANSI color escape codes.
+ pub const RESET: &str = "\x1b[0m";
+ pub const RED_BOLD: &str = "\x1b[1;31m";
+ pub const YELLOW_BOLD: &str = "\x1b[1;33m";
+ pub const GREY: &str = "\x1b[90m";

@@ -1,0 +1,15 @@
+--- src/cache.rs
++++ replace ApiCache::parse -> anyhow::Result<Self> with Ok(Default::default())
+@@ -21,11 +21,11 @@
+     #[serde(default)]
+     pub resets_at: Option<DateTime<Utc>>,
+ }
+ 
+ impl ApiCache {
+     /// Parse a cache JSON string. Used directly by tests; the binary's
+     /// `main()` reads the file with the orchestration layer.
+     pub fn parse(json: &str) -> anyhow::Result<Self> {
+-        Ok(serde_json::from_str(json)?)
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }

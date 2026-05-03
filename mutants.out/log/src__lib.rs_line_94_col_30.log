@@ -1,0 +1,199 @@
+
+*** src/lib.rs:94:30: replace - with + in render_d7
+
+*** mutation diff:
+--- src/lib.rs
++++ replace - with + in render_d7
+@@ -86,17 +86,17 @@
+             buckets_for_render = history.cycles.last().unwrap().buckets;
+         }
+     }
+ 
+     let mut display = buckets_for_render;
+     cycle::forward_fill(&mut display, idx);
+ 
+     let elapsed_pct = ((now_ts - cycle_start) * 100 / cycle_len) as i32;
+-    let delta = (pct as i32) - elapsed_pct;
++    let delta = (pct as i32) + /* ~ changed by cargo-mutants ~ */ elapsed_pct;
+     let current_color = if pct >= 90 || delta > 30 {
+         bar::RED_BOLD
+     } else if delta > 10 {
+         bar::YELLOW_BOLD
+     } else {
+         "\x1b[0m"
+     };
+ 
+
+
+*** /Users/alex/.rustup/toolchains/1.94.0-aarch64-apple-darwin/bin/cargo test --no-run --verbose --package=claude-meter@0.1.0
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+       Fresh unicode-ident v1.0.24
+       Fresh proc-macro2 v1.0.106
+       Fresh quote v1.0.45
+       Fresh autocfg v1.5.0
+       Fresh syn v2.0.117
+       Fresh serde_core v1.0.228
+       Fresh serde_derive v1.0.228
+       Fresh libc v0.2.186
+       Fresh core-foundation-sys v0.8.7
+       Fresh iana-time-zone v0.1.65
+       Fresh num-traits v0.2.19
+       Fresh serde v1.0.228
+       Fresh zmij v1.0.21
+       Fresh itoa v1.0.18
+       Fresh memchr v2.8.0
+       Fresh chrono v0.4.44
+       Fresh anyhow v1.0.102
+       Fresh errno v0.3.14
+       Fresh cfg-if v1.0.4
+       Fresh bitflags v2.11.1
+       Fresh once_cell v1.21.4
+       Fresh fastrand v2.4.1
+       Fresh serde_json v1.0.149
+       Fresh getrandom v0.4.2
+       Fresh rustix v1.1.4
+       Dirty claude-meter v0.1.0 (/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp): the file `src/lib.rs` has changed (1777847811.356579113s, 1s after last build at 1777847810.625406151s)
+   Compiling claude-meter v0.1.0 (/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp)
+       Fresh tempfile v3.27.0
+     Running `/Users/alex/.rustup/toolchains/1.94.0-aarch64-apple-darwin/bin/rustc --crate-name claude_meter --edition=2024 src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=50a98f700fdb4ca9 -C extra-filename=-76d9448720ecc345 --out-dir /private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps -C incremental=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/incremental -L dependency=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps --extern anyhow=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/libanyhow-1dce37a318ac7e8f.rlib --extern chrono=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/libchrono-4d37352f04c69f14.rlib --extern serde=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/libserde-0b59a478a8523a78.rlib --extern serde_json=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/libserde_json-5a8254ac69982083.rlib --extern tempfile=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/libtempfile-4dcbda5dc1940294.rlib`
+     Running `/Users/alex/.rustup/toolchains/1.94.0-aarch64-apple-darwin/bin/rustc --crate-name claude_meter --edition=2024 src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=fca702b709b9bc0a -C extra-filename=-5d6516020fee478f --out-dir /private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps -C incremental=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/incremental -L dependency=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps --extern anyhow=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/libanyhow-1dce37a318ac7e8f.rmeta --extern chrono=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/libchrono-4d37352f04c69f14.rmeta --extern serde=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/libserde-0b59a478a8523a78.rmeta --extern serde_json=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/libserde_json-5a8254ac69982083.rmeta`
+     Running `/Users/alex/.rustup/toolchains/1.94.0-aarch64-apple-darwin/bin/rustc --crate-name outer --edition=2024 tests/outer.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=59e7d3c61ed9b5d1 -C extra-filename=-b2d4600fd12ae6ed --out-dir /private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps -C incremental=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/incremental -L dependency=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps --extern anyhow=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/libanyhow-1dce37a318ac7e8f.rlib --extern chrono=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/libchrono-4d37352f04c69f14.rlib --extern claude_meter=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/libclaude_meter-5d6516020fee478f.rlib --extern serde=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/libserde-0b59a478a8523a78.rlib --extern serde_json=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/libserde_json-5a8254ac69982083.rlib --extern tempfile=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/libtempfile-4dcbda5dc1940294.rlib`
+     Running `/Users/alex/.rustup/toolchains/1.94.0-aarch64-apple-darwin/bin/rustc --crate-name claude_meter --edition=2024 src/main.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=df2a3076a0cd2a51 -C extra-filename=-c31b6abcefc58389 --out-dir /private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps -C incremental=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/incremental -L dependency=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps --extern anyhow=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/libanyhow-1dce37a318ac7e8f.rlib --extern chrono=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/libchrono-4d37352f04c69f14.rlib --extern claude_meter=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/libclaude_meter-5d6516020fee478f.rlib --extern serde=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/libserde-0b59a478a8523a78.rlib --extern serde_json=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/libserde_json-5a8254ac69982083.rlib --extern tempfile=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/libtempfile-4dcbda5dc1940294.rlib`
+     Running `/Users/alex/.rustup/toolchains/1.94.0-aarch64-apple-darwin/bin/rustc --crate-name claude_meter --edition=2024 src/main.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type bin --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=11c24a30b9c43cc8 -C extra-filename=-a771cf2bab6c207c --out-dir /private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps -C incremental=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/incremental -L dependency=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps --extern anyhow=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/libanyhow-1dce37a318ac7e8f.rlib --extern chrono=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/libchrono-4d37352f04c69f14.rlib --extern claude_meter=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/libclaude_meter-5d6516020fee478f.rlib --extern serde=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/libserde-0b59a478a8523a78.rlib --extern serde_json=/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/libserde_json-5a8254ac69982083.rlib`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.38s
+  Executable `/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/claude_meter-76d9448720ecc345`
+  Executable `/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/claude_meter-c31b6abcefc58389`
+  Executable `/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/outer-b2d4600fd12ae6ed`
+
+*** result: Success
+
+*** /Users/alex/.rustup/toolchains/1.94.0-aarch64-apple-darwin/bin/cargo test --verbose --package=claude-meter@0.1.0
+       Fresh unicode-ident v1.0.24
+       Fresh autocfg v1.5.0
+       Fresh core-foundation-sys v0.8.7
+       Fresh memchr v2.8.0
+       Fresh itoa v1.0.18
+       Fresh cfg-if v1.0.4
+       Fresh proc-macro2 v1.0.106
+       Fresh iana-time-zone v0.1.65
+       Fresh bitflags v2.11.1
+       Fresh once_cell v1.21.4
+       Fresh fastrand v2.4.1
+       Fresh quote v1.0.45
+       Fresh serde_core v1.0.228
+       Fresh libc v0.2.186
+       Fresh zmij v1.0.21
+       Fresh anyhow v1.0.102
+       Fresh syn v2.0.117
+       Fresh num-traits v0.2.19
+       Fresh errno v0.3.14
+       Fresh serde_json v1.0.149
+       Fresh getrandom v0.4.2
+       Fresh serde_derive v1.0.228
+       Fresh rustix v1.1.4
+       Fresh serde v1.0.228
+       Fresh tempfile v3.27.0
+       Fresh chrono v0.4.44
+       Fresh claude-meter v0.1.0 (/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.05s
+     Running `/private/var/folders/x_/wwfccrt56lb885gf848jd3sc0000gn/T/cargo-mutants-claude-meter-SQQ7fW.tmp/target/debug/deps/claude_meter-76d9448720ecc345`
+
+running 60 tests
+test bar::tests::bar_highest_char_for_full ... ok
+test bar::tests::bar_lowest_chars_for_low_pct ... ok
+test bar::tests::pace_color_grey_at_low_delta ... ok
+test bar::tests::ctx_color_red_at_80_and_above ... ok
+test bar::tests::ctx_color_grey_below_50 ... ok
+test bar::tests::pace_color_red_above_30 ... ok
+test bar::tests::ctx_color_yellow_at_50_through_79 ... ok
+test bar::tests::pace_color_yellow_above_10_through_30 ... ok
+test bar::tests::bar_progression_covers_eight_levels ... ok
+test cycle::tests::append_new_cycle_creates_fresh_entry_at_end ... ok
+test cycle::tests::bucket_idx_clamps_to_six_at_cycle_end ... ok
+test cycle::tests::bucket_idx_clamps_to_zero_when_negative_elapsed ... ok
+test cycle::tests::bucket_idx_floors_minimum_bucket_size ... ok
+test cycle::tests::bucket_idx_partitions_seven_days_correctly ... ok
+test cycle::tests::bucket_idx_zero_at_cycle_start ... ok
+test cycle::tests::cycle_start_excludes_stored_reset_at_exactly_60s_drift ... ok
+test cycle::tests::cycle_start_excludes_stored_reset_within_drift_tolerance ... ok
+test cycle::tests::cycle_start_falls_back_just_past_7d_plus_tolerance ... ok
+test cycle::tests::cycle_start_falls_back_when_no_prior_cycle ... ok
+test cycle::tests::cycle_start_falls_back_when_prev_more_than_7d_ago ... ok
+test cycle::tests::cycle_start_includes_reset_just_past_drift_tolerance ... ok
+test cycle::tests::cycle_start_tolerates_7d_gate_drift ... ok
+test cycle::tests::cycle_start_uses_prev_at_exact_7d_plus_tolerance ... ok
+test cycle::tests::cycle_start_uses_prev_reset_when_within_7d ... ok
+test cycle::tests::forward_fill_does_not_touch_future_positions ... ok
+test cycle::tests::forward_fill_inherits_through_nulls ... ok
+test cycle::tests::forward_fill_leaves_leading_null_alone ... ok
+test cycle::tests::match_cycle_finds_within_60s_either_direction ... ok
+test cycle::tests::match_cycle_misses_just_outside_tolerance ... ok
+test cycle::tests::match_cycle_returns_none_for_empty_history ... ok
+test cycle::tests::max_guard_holds_on_equal_value ... ok
+test cycle::tests::max_guard_keeps_higher_stored_value ... ok
+test cycle::tests::max_guard_overwrites_lower_stored_value ... ok
+test cycle::tests::max_guard_writes_pct_when_bucket_empty ... ok
+test history::tests::parse_empty_object_is_empty_history ... ok
+test history::tests::parse_handles_null_buckets ... ok
+test history::tests::parse_recovers_cycles_and_buckets ... ok
+test history::tests::to_json_emits_cycles_key_with_reset_value ... ok
+test history::tests::to_json_round_trips ... ok
+test tests::render_d7_at_exact_reset_does_not_emit_stale_signature ... ok
+test tests::render_d7_at_exact_reset_is_not_stale ... ok
+test tests::render_d7_baseline_uses_expected_per_cell_progression ... ok
+test tests::render_d7_current_color_red_when_delta_above_30 ... ok
+test tests::render_d7_current_color_red_when_pct_at_or_above_90 ... ok
+test tests::render_d7_at_delta_exactly_10_is_default_not_yellow ... FAILED
+test tests::render_d7_current_color_default_when_on_pace ... FAILED
+test tests::render_d7_at_delta_exactly_30_is_yellow_not_red ... FAILED
+test tests::render_d7_only_current_bucket_uses_current_color ... ok
+test tests::render_d7_current_color_yellow_when_delta_in_11_to_30 ... FAILED
+test tests::render_d7_stale_idle_renders_dim_dots ... ok
+test tests::render_d7_stale_with_pct_renders_red_full ... ok
+test tests::render_h5_at_exact_reset_is_not_stale ... ok
+test tests::render_h5_below_90_uses_pace_color_not_red ... ok
+test tests::render_h5_elapsed_pct_division_pinned ... ok
+test tests::render_h5_no_resets_at_renders_past_color ... ok
+test tests::render_h5_red_at_pct_90 ... ok
+test tests::render_h5_stale_idle_renders_grey_lowest_bar ... ok
+test tests::render_h5_stale_with_pct_renders_red_full_bar ... ok
+test tests::render_h5_yellow_when_pace_delta_above_10 ... ok
+test tests::short_model_strips_claude_prefix_and_version ... ok
+
+failures:
+
+---- tests::render_d7_at_delta_exactly_10_is_default_not_yellow stdout ----
+
+thread 'tests::render_d7_at_delta_exactly_10_is_default_not_yellow' (27999013) panicked at src/lib.rs:450:9:
+delta==10 → not RED: "\u{1b}[38;5;238m▂\u{1b}[38;5;238m▃\u{1b}[38;5;238m▄\u{1b}[1;31m▅\u{1b}[38;5;238m▆\u{1b}[38;5;238m▇\u{1b}[38;5;238m█"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- tests::render_d7_current_color_default_when_on_pace stdout ----
+
+thread 'tests::render_d7_current_color_default_when_on_pace' (27999018) panicked at src/lib.rs:304:9:
+on-pace should not be RED: "\u{1b}[38;5;238m▂\u{1b}[38;5;238m▃\u{1b}[38;5;238m▄\u{1b}[1;31m▄\u{1b}[38;5;238m▆\u{1b}[38;5;238m▇\u{1b}[38;5;238m█"
+
+---- tests::render_d7_at_delta_exactly_30_is_yellow_not_red stdout ----
+
+thread 'tests::render_d7_at_delta_exactly_30_is_yellow_not_red' (27999014) panicked at src/lib.rs:431:9:
+delta==30 → YELLOW: "\u{1b}[38;5;238m▂\u{1b}[38;5;238m▃\u{1b}[38;5;238m▄\u{1b}[1;31m▇\u{1b}[38;5;238m▆\u{1b}[38;5;238m▇\u{1b}[38;5;238m█"
+
+---- tests::render_d7_current_color_yellow_when_delta_in_11_to_30 stdout ----
+
+thread 'tests::render_d7_current_color_yellow_when_delta_in_11_to_30' (27999021) panicked at src/lib.rs:289:9:
+delta in (10, 30] should be YELLOW: "\u{1b}[38;5;238m▂\u{1b}[38;5;238m▃\u{1b}[38;5;238m▄\u{1b}[38;5;238m▅\u{1b}[1;31m▆\u{1b}[38;5;238m▇\u{1b}[38;5;238m█"
+
+
+failures:
+    tests::render_d7_at_delta_exactly_10_is_default_not_yellow
+    tests::render_d7_at_delta_exactly_30_is_yellow_not_red
+    tests::render_d7_current_color_default_when_on_pace
+    tests::render_d7_current_color_yellow_when_delta_in_11_to_30
+
+test result: FAILED. 56 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p claude-meter --lib`
+
+*** result: Failure(101)
