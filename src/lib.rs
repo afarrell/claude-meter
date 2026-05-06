@@ -61,13 +61,11 @@ fn render_d7(window: &Window, history: &mut History, now_ts: i64) -> String {
         None => return format!("{}{}", bar::PAST, bar::bar(window.utilization as u8)),
     };
 
-    // Stale: reset is in the past (window has rolled over but cache wasn't refreshed).
+    // Stale: reset is in the past (cache wasn't refreshed before rollover).
+    // Render the dim baseline in GREY — we don't know current bucket state, so
+    // showing fabricated full red bars (the prior behavior) misleads the user.
     if now_ts > reset_ts {
-        let pct = window.utilization as u8;
-        if pct == 0 {
-            return format!("{}·······", bar::GREY);
-        }
-        return format!("{}███████", bar::RED_BOLD);
+        return format!("{}·······", bar::GREY);
     }
 
     let cycle_start = cycle::cycle_start_for_reset(reset_ts, history);
@@ -128,11 +126,11 @@ fn render_h5(window: &Window, now_ts: i64) -> String {
         Some(dt) => dt.timestamp(),
         None => return format!("{}{}", bar::PAST, bar::bar(pct)),
     };
+    // Stale: window rolled over before the cache could refresh. Render the
+    // last known utilization in GREY — honest "stale, may be out of date"
+    // signal instead of a fabricated full red bar that lies about usage.
     if now_ts > reset_ts {
-        if pct == 0 {
-            return format!("{}{}", bar::GREY, bar::bar(0));
-        }
-        return format!("{}{}", bar::RED_BOLD, bar::bar(100));
+        return format!("{}{}", bar::GREY, bar::bar(pct));
     }
     if pct >= 90 {
         return format!("{}{}", bar::RED_BOLD, bar::bar(pct));
@@ -195,14 +193,16 @@ mod tests {
     }
 
     #[test]
-    fn render_d7_stale_with_pct_renders_red_full() {
+    fn render_d7_stale_with_pct_renders_grey_dots_not_red_full() {
         let reset = ts(2026, 5, 1, 0);
         let w = window(42.0, Some(Utc.timestamp_opt(reset, 0).unwrap()));
         let mut h = History::default();
-        // now > reset and pct != 0 → red "███████"
+        // now > reset → dim dots in GREY regardless of pct (no fake-max bar).
         let out = render_d7(&w, &mut h, reset + 3600);
-        assert!(out.contains('█'), "expected full blocks for stale+nonzero: {out:?}");
-        assert!(out.starts_with(bar::RED_BOLD), "expected RED_BOLD prefix: {out:?}");
+        assert!(out.contains('·'), "expected dim dots for stale: {out:?}");
+        assert!(!out.contains('█'), "must not render fake-max blocks: {out:?}");
+        assert!(out.starts_with(bar::GREY), "expected GREY prefix: {out:?}");
+        assert!(!out.contains(bar::RED_BOLD), "must not be RED: {out:?}");
     }
 
     #[test]
@@ -316,11 +316,16 @@ mod tests {
     }
 
     #[test]
-    fn render_h5_stale_with_pct_renders_red_full_bar() {
+    fn render_h5_stale_with_pct_renders_last_known_in_grey() {
+        // Stale + pct=42 must render the last-known bar height in GREY,
+        // not a fabricated red full bar at 100%. Lying about utilization
+        // (the prior behavior) panicked users when their actual usage was low.
         let reset = ts(2026, 5, 1, 0);
         let w = window(42.0, Some(Utc.timestamp_opt(reset, 0).unwrap()));
         let out = render_h5(&w, reset + 3600);
-        assert_eq!(out, format!("{}{}", bar::RED_BOLD, bar::bar(100)));
+        assert_eq!(out, format!("{}{}", bar::GREY, bar::bar(42)));
+        assert!(!out.contains(bar::RED_BOLD), "must not be RED: {out:?}");
+        assert!(!out.contains('█'), "must not fake-max the bar: {out:?}");
     }
 
     #[test]
