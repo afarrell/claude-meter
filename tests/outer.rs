@@ -181,6 +181,61 @@ fn small_day_one_reset_drops_bucket_to_zero() {
     );
 }
 
+/// Inter-day complement to the intra-day max-guard test above.
+///
+/// `apply_max_guard` keeps the *peak* within a single day's bucket, but it
+/// must never reach across buckets. When usage genuinely drops from one day
+/// to the next — e.g. a window reset, or a limit change that raises the
+/// token ceiling so the same consumption reports a lower percentage — a
+/// later day's bar must render *shorter* than an earlier, higher day's bar.
+///
+/// Concretely: 40% on day 0, then 20% on day 1, must render a tall bar
+/// followed by a short bar — and the day-0 value must NOT be rewritten.
+///
+/// The regression this guards against: a future "fix" that makes the
+/// sparkline monotonic (forward-fill or max-guard reaching across buckets),
+/// turning it into a ratchet that can only ever climb.
+#[test]
+fn lower_usage_on_later_day_renders_shorter_bar_without_rewriting_history() {
+    // Cycle: 2026-05-01T07:00 → 2026-05-08T07:00 (7 daily buckets).
+    // reset epoch 1778223600 == 2026-05-08T07:00:00Z (must match cache reset).
+    let reset = "2026-05-08T07:00:00+00:00";
+    let cache = cache_with_d7(20.0, reset); // today's (lower) reading
+
+    // Day 0 already recorded a 40% peak; days 1..6 unobserved.
+    let mut history = History::parse(
+        r#"{"cycles":[{"reset":1778223600,"buckets":[40,null,null,null,null,null,null]}]}"#,
+    )
+    .unwrap();
+
+    // NOW = 2026-05-02T12:00 → ~1.2 days into the cycle → bucket idx 1.
+    let now = Utc.with_ymd_and_hms(2026, 5, 2, 12, 0, 0).unwrap();
+    let out = render(&input(35), now, &cache, &mut history);
+
+    // History invariant: day 0's peak is preserved (no back-rewrite), and
+    // day 1 records the genuinely lower reading rather than inheriting 40.
+    let cyc = &history.cycles[0];
+    assert_eq!(cyc.buckets[0], Some(40), "day 0 peak must not be rewritten");
+    assert_eq!(
+        cyc.buckets[1],
+        Some(20),
+        "day 1 must record the lower reading, not ratchet up to day 0"
+    );
+
+    // Render invariant: the earlier (higher) day's bar is taller than the
+    // later (lower) day's bar. Compare spark-char heights, not raw chars.
+    use claude_meter::bar::SPARK_CHARS;
+    let d7 = strip_ansi(&out).rsplit(' ').next().unwrap().to_string();
+    let sparks: Vec<char> = d7.chars().collect();
+    let height = |c: char| SPARK_CHARS.iter().position(|&s| s == c).unwrap();
+    assert_eq!(sparks[0], claude_meter::bar::bar(40), "day 0 char = bar(40)");
+    assert_eq!(sparks[1], claude_meter::bar::bar(20), "day 1 char = bar(20)");
+    assert!(
+        height(sparks[0]) > height(sparks[1]),
+        "earlier higher day must render taller than later lower day: {d7:?}"
+    );
+}
+
 /// Cycle rollover: when reset_ts shifts by more than the 60s tolerance,
 /// a brand-new cycle entry must be appended.
 #[test]
