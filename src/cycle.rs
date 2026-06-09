@@ -63,6 +63,20 @@ pub fn match_cycle(reset_ts: i64, history: &History) -> Option<usize> {
         .position(|c| (c.reset - reset_ts).abs() <= CYCLE_MATCH_TOLERANCE_S)
 }
 
+/// Minimum drop (percentage points) below the stored daily peak that we
+/// treat as an Anthropic-side usage reset rather than intraday noise.
+///
+/// Anthropic occasionally lowers or zeroes an account's weekly usage
+/// level mid-cycle without moving `resets_at` (observed 2026-06-10:
+/// today's peak 50, API suddenly reporting 2). The daily-peak max guard
+/// would otherwise pin today's bucket at the pre-reset high for the rest
+/// of the day. Intraday dips from window noise are small (the
+/// `max_guard_keeps_daily_peak_across_intraday_renders` outer test pins
+/// a 12-point dip as absorbable noise), and a sub-threshold miss costs at
+/// most ~1 glyph step (each bar glyph spans ~12.5 points). A drop of this
+/// size means the usage level itself changed.
+pub const RESET_DROP_PP: u8 = 20;
+
 /// Update the bucket at `idx` with `pct` using the daily-peak rule:
 /// keep `max(stored, pct)`. Returns the new value stored.
 ///
@@ -70,8 +84,15 @@ pub fn match_cycle(reset_ts: i64, history: &History) -> Option<usize> {
 /// day can vary in the reported `pct` (rolling-window noise, mid-day
 /// dips); we keep only the highest. See the
 /// `max_guard_keeps_daily_peak_across_intraday_renders` outer test.
+///
+/// **Exception:** if `pct` has fallen at least [`RESET_DROP_PP`] points
+/// below the stored peak, Anthropic has externally reset or lowered the
+/// usage level; the stale peak no longer describes the live cycle, so we
+/// re-baseline the bucket to `pct`. The bucket then re-accumulates peaks
+/// from the new baseline.
 pub fn apply_max_guard(buckets: &mut [Option<u8>; 7], idx: usize, pct: u8) -> u8 {
     let new = match buckets[idx] {
+        Some(stored) if stored >= pct.saturating_add(RESET_DROP_PP) => pct,
         Some(stored) => stored.max(pct),
         None => pct,
     };
@@ -289,8 +310,46 @@ mod tests {
     fn max_guard_keeps_higher_stored_value() {
         let mut buckets: [Option<u8>; 7] = [None; 7];
         buckets[3] = Some(50);
-        apply_max_guard(&mut buckets, 3, 30);
-        assert_eq!(buckets[3], Some(50), "lower pct must NOT clobber higher peak");
+        apply_max_guard(&mut buckets, 3, 40);
+        assert_eq!(buckets[3], Some(50), "sub-threshold dip must NOT clobber higher peak");
+    }
+
+    #[test]
+    fn max_guard_rebaselines_on_external_reset() {
+        // The 2026-06-10 incident: day's peak 50, Anthropic zeroes the
+        // weekly usage level, API reports 2. Bucket must drop to 2, not
+        // stay pinned at 50.
+        let mut buckets: [Option<u8>; 7] = [None; 7];
+        buckets[6] = Some(50);
+        let new = apply_max_guard(&mut buckets, 6, 2);
+        assert_eq!(buckets[6], Some(2), "external reset must re-baseline the bucket");
+        assert_eq!(new, 2);
+    }
+
+    #[test]
+    fn max_guard_rebaselines_at_exact_threshold() {
+        let mut buckets: [Option<u8>; 7] = [None; 7];
+        buckets[3] = Some(22);
+        apply_max_guard(&mut buckets, 3, 2); // drop of exactly RESET_DROP_PP
+        assert_eq!(buckets[3], Some(2), "drop of exactly RESET_DROP_PP must re-baseline");
+    }
+
+    #[test]
+    fn max_guard_keeps_peak_just_below_threshold() {
+        let mut buckets: [Option<u8>; 7] = [None; 7];
+        buckets[3] = Some(21);
+        apply_max_guard(&mut buckets, 3, 2); // drop of 19 — noise, not a reset
+        assert_eq!(buckets[3], Some(21), "drop below RESET_DROP_PP must keep the peak");
+    }
+
+    #[test]
+    fn max_guard_reaccumulates_after_rebaseline() {
+        // After a reset, the bucket grows again from the new baseline.
+        let mut buckets: [Option<u8>; 7] = [None; 7];
+        buckets[3] = Some(50);
+        apply_max_guard(&mut buckets, 3, 2);  // reset → 2
+        apply_max_guard(&mut buckets, 3, 9);  // usage resumes → 9
+        assert_eq!(buckets[3], Some(9), "bucket must re-accumulate from new baseline");
     }
 
     #[test]

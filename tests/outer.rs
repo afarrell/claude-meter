@@ -104,6 +104,45 @@ fn max_guard_keeps_daily_peak_across_intraday_renders() {
     );
 }
 
+/// Bug 2026-06-10 — "the stuck post-reset bar."
+///
+/// Anthropic zeroed the weekly usage level mid-cycle (resets_at
+/// unchanged). The day's stored peak was 50; the API began reporting 2.
+/// The max guard pinned today's bucket at 50 for the rest of the day,
+/// showing the pre-reset high instead of reality. A drop of
+/// RESET_DROP_PP+ points must re-baseline today's bucket to the live
+/// value — and past days' buckets must keep their recorded peaks.
+#[test]
+fn external_usage_reset_rebaselines_todays_bucket() {
+    // Real data from the incident: cycle resets 2026-06-10T07:00Z.
+    let mut history = History::parse(
+        r#"{"cycles":[
+            {"reset":1780470000,"buckets":[10,17,21,null,null,26,18]},
+            {"reset":1781074800,"buckets":[15,25,27,28,null,37,50]}
+        ]}"#,
+    )
+    .unwrap();
+
+    // NOW = June 9 23:30 UTC — last day of the cycle (idx=6).
+    let now = Utc.with_ymd_and_hms(2026, 6, 9, 23, 30, 0).unwrap();
+    let cache = cache_with_d7(2.0, "2026-06-10T06:59:59+00:00");
+
+    render(&input(35), now, &cache, &mut history);
+
+    let last = history.cycles.last().unwrap();
+    assert_eq!(
+        last.buckets[6],
+        Some(2),
+        "today's bucket must re-baseline to the post-reset value, got {:?}",
+        last.buckets[6]
+    );
+    assert_eq!(
+        &last.buckets[..6],
+        &[Some(15), Some(25), Some(27), Some(28), None, Some(37)],
+        "past buckets must keep their recorded peaks"
+    );
+}
+
 /// Cycle rollover: when reset_ts shifts by more than the 60s tolerance,
 /// a brand-new cycle entry must be appended.
 #[test]
