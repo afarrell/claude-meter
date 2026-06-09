@@ -75,9 +75,19 @@ fn drift_does_not_collapse_idx_to_zero() {
     );
 }
 
-/// Bug 2026-05-02 — "the impossible dip" / write-time max-guard.
+/// Intraday renders track the latest API reading — and write ONLY the
+/// current bucket.
+///
+/// History: this test originally pinned a daily-peak max guard ("the
+/// impossible dip", 2026-05-02 bash bug). That guard assumed a rolling
+/// window with organic intraday dips. The window is in fact fixed-reset
+/// (utilization within a cycle only grows), so a lower reading means
+/// Anthropic changed the usage level and the bar must follow immediately
+/// (2026-06-10 incident) — there is no organic peak to defend. The
+/// invariant still worth pinning from the original bug: renders must
+/// never write outside the current bucket.
 #[test]
-fn max_guard_keeps_daily_peak_across_intraday_renders() {
+fn intraday_renders_track_latest_reading_in_current_bucket_only() {
     let mut history = History::parse(
         r#"{"cycles":[
             {"reset":1777446000,"buckets":[54,54,54,54,54,54,54]},
@@ -89,7 +99,7 @@ fn max_guard_keeps_daily_peak_across_intraday_renders() {
     // NOW = May 1 14:00 UTC = day 2 of the cycle (idx=2).
     let now = Utc.with_ymd_and_hms(2026, 5, 1, 14, 0, 0).unwrap();
 
-    // Three samples: high, dip, partial recovery.
+    // Three samples: growth, externally-lowered level, regrowth.
     for pct in [42.0, 30.0, 38.0] {
         let cache = cache_with_d7(pct, "2026-05-06T07:00:00+00:00");
         render(&input(35), now, &cache, &mut history);
@@ -98,20 +108,22 @@ fn max_guard_keeps_daily_peak_across_intraday_renders() {
     let last = history.cycles.last().unwrap();
     assert_eq!(
         last.buckets[2],
-        Some(42),
-        "max-guard failed: bucket[2] should be 42 (peak), got {:?}",
+        Some(38),
+        "bucket[2] should hold the latest reading, got {:?}",
         last.buckets[2]
     );
+    let written = last.buckets.iter().filter(|b| b.is_some()).count();
+    assert_eq!(written, 1, "renders must only ever write the current bucket");
 }
 
 /// Bug 2026-06-10 — "the stuck post-reset bar."
 ///
 /// Anthropic zeroed the weekly usage level mid-cycle (resets_at
-/// unchanged). The day's stored peak was 50; the API began reporting 2.
-/// The max guard pinned today's bucket at 50 for the rest of the day,
-/// showing the pre-reset high instead of reality. A drop of
-/// RESET_DROP_PP+ points must re-baseline today's bucket to the live
-/// value — and past days' buckets must keep their recorded peaks.
+/// unchanged). The day's stored reading was 50; the API began reporting
+/// 2. The old max guard pinned today's bucket at 50 for the rest of the
+/// day, showing the pre-reset high instead of reality. Today's bucket
+/// must follow the live value — and past days' buckets must keep their
+/// recorded values.
 #[test]
 fn external_usage_reset_rebaselines_todays_bucket() {
     // Real data from the incident: cycle resets 2026-06-10T07:00Z.
@@ -139,7 +151,33 @@ fn external_usage_reset_rebaselines_todays_bucket() {
     assert_eq!(
         &last.buckets[..6],
         &[Some(15), Some(25), Some(27), Some(28), None, Some(37)],
-        "past buckets must keep their recorded peaks"
+        "past buckets must keep their recorded values"
+    );
+}
+
+/// A small reset must show just as immediately as a large one: day one
+/// of a cycle at 15%, Anthropic resets to 0. There is no drop-size
+/// threshold — with a fixed-reset window, genuine usage never decreases
+/// within a cycle, so any drop is an external level change.
+#[test]
+fn small_day_one_reset_drops_bucket_to_zero() {
+    let mut history = History::parse(
+        r#"{"cycles":[{"reset":1781679600,"buckets":[15,null,null,null,null,null,null]}]}"#,
+    )
+    .unwrap();
+
+    // NOW = June 10 12:00 UTC — day 0 of the cycle resetting June 17 07:00Z.
+    let now = Utc.with_ymd_and_hms(2026, 6, 10, 12, 0, 0).unwrap();
+    let cache = cache_with_d7(0.0, "2026-06-17T07:00:00+00:00");
+
+    render(&input(35), now, &cache, &mut history);
+
+    let last = history.cycles.last().unwrap();
+    assert_eq!(
+        last.buckets[0],
+        Some(0),
+        "a 15-point day-one reset must drop the bucket to 0, got {:?}",
+        last.buckets[0]
     );
 }
 
