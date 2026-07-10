@@ -1,9 +1,12 @@
-//! Rolling-window cycle math.
+//! Weekly-cycle math.
 //!
-//! Anthropic's weekly limit is a rolling 168h window. Each "cycle" in this
-//! module is bounded by two consecutive `reset_at` events from the API.
-//! Within a cycle we partition time into 7 daily buckets and record each
-//! day's peak utilization.
+//! Anthropic's weekly limit is a fixed window that zeroes at `reset_at`
+//! (not a continuously rolling 168h window — utilization within a cycle
+//! only ever grows, as the stored bucket history confirms). Each "cycle"
+//! in this module is bounded by two consecutive `reset_at` events from
+//! the API. Within a cycle we partition time into 7 daily buckets and
+//! record each day's latest observed utilization — which, by
+//! monotonicity, is also the day's peak.
 //!
 //! The math here is the part of the bash script that had bugs — kept
 //! deliberately small and pure so unit tests pin every branch.
@@ -63,20 +66,30 @@ pub fn match_cycle(reset_ts: i64, history: &History) -> Option<usize> {
         .position(|c| (c.reset - reset_ts).abs() <= CYCLE_MATCH_TOLERANCE_S)
 }
 
-/// Update the bucket at `idx` with `pct` using the daily-peak rule:
-/// keep `max(stored, pct)`. Returns the new value stored.
+/// Record the latest observation for the bucket at `idx`. Returns `pct`.
 ///
-/// This is the per-day peak invariant. Multiple renders during a single
-/// day can vary in the reported `pct` (rolling-window noise, mid-day
-/// dips); we keep only the highest. See the
-/// `max_guard_keeps_daily_peak_across_intraday_renders` outer test.
-pub fn apply_max_guard(buckets: &mut [Option<u8>; 7], idx: usize, pct: u8) -> u8 {
-    let new = match buckets[idx] {
-        Some(stored) => stored.max(pct),
-        None => pct,
-    };
-    buckets[idx] = Some(new);
-    new
+/// The bucket simply tracks the most recent API reading. The weekly
+/// window is a fixed-reset window (it only zeroes at `resets_at`), so
+/// genuine utilization is monotonically non-decreasing within a cycle —
+/// the day's last observation IS the day's peak on every normal day.
+/// There are only two ways a reading can be lower than the stored value:
+///
+/// 1. **Anthropic reset or lowered the usage level mid-cycle** without
+///    moving `resets_at` (observed 2026-06-10: day's peak 50, API
+///    suddenly reporting 2). The bucket must follow immediately — the
+///    previous peak-keeping guard pinned today's bar at the stale high
+///    for the rest of the day, regardless of drop size.
+/// 2. **Transient API misread.** Self-heals on the next render, seconds
+///    later during active use. A malformed cache can't inject a fake 0:
+///    `ApiCache::parse` has no default for `utilization`, so a partial
+///    cache fails parsing and `main` exits before touching history.
+///
+/// (This replaces the earlier `apply_max_guard` daily-peak rule, which
+/// assumed a rolling window with organic intraday dips. The window is
+/// not rolling; there are no organic dips to guard against.)
+pub fn record_observation(buckets: &mut [Option<u8>; 7], idx: usize, pct: u8) -> u8 {
+    buckets[idx] = Some(pct);
+    pct
 }
 
 /// Append a brand-new cycle entry to history with `pct` written at `idx`.
@@ -276,37 +289,61 @@ mod tests {
         assert_eq!(match_cycle(1_000_000, &History::default()), None);
     }
 
-    // ---------- apply_max_guard ----------
+    // ---------- record_observation ----------
 
     #[test]
-    fn max_guard_writes_pct_when_bucket_empty() {
+    fn record_writes_pct_when_bucket_empty() {
         let mut buckets: [Option<u8>; 7] = [None; 7];
-        apply_max_guard(&mut buckets, 3, 42);
+        let new = record_observation(&mut buckets, 3, 42);
         assert_eq!(buckets[3], Some(42));
+        assert_eq!(new, 42);
     }
 
     #[test]
-    fn max_guard_keeps_higher_stored_value() {
-        let mut buckets: [Option<u8>; 7] = [None; 7];
-        buckets[3] = Some(50);
-        apply_max_guard(&mut buckets, 3, 30);
-        assert_eq!(buckets[3], Some(50), "lower pct must NOT clobber higher peak");
-    }
-
-    #[test]
-    fn max_guard_overwrites_lower_stored_value() {
+    fn record_follows_growth() {
         let mut buckets: [Option<u8>; 7] = [None; 7];
         buckets[3] = Some(30);
-        apply_max_guard(&mut buckets, 3, 50);
+        record_observation(&mut buckets, 3, 50);
         assert_eq!(buckets[3], Some(50));
     }
 
     #[test]
-    fn max_guard_holds_on_equal_value() {
+    fn record_follows_any_drop_immediately() {
+        // The 2026-06-10 incident: day's reading 50, Anthropic zeroes the
+        // weekly usage level, API reports 2. Bucket must follow.
         let mut buckets: [Option<u8>; 7] = [None; 7];
-        buckets[3] = Some(42);
-        apply_max_guard(&mut buckets, 3, 42);
-        assert_eq!(buckets[3], Some(42));
+        buckets[6] = Some(50);
+        record_observation(&mut buckets, 6, 2);
+        assert_eq!(buckets[6], Some(2), "external reset must show immediately");
+
+        // Small reset too: day one at 15, reset to 0. No threshold —
+        // any drop is an Anthropic-side level change (the window is
+        // fixed-reset, so genuine usage never decreases within a cycle).
+        let mut buckets: [Option<u8>; 7] = [None; 7];
+        buckets[0] = Some(15);
+        record_observation(&mut buckets, 0, 0);
+        assert_eq!(buckets[0], Some(0), "small day-one reset must show immediately");
+    }
+
+    #[test]
+    fn record_reaccumulates_after_reset() {
+        // After a reset, the bucket grows again from the new baseline.
+        let mut buckets: [Option<u8>; 7] = [None; 7];
+        buckets[3] = Some(50);
+        record_observation(&mut buckets, 3, 2); // reset → 2
+        record_observation(&mut buckets, 3, 9); // usage resumes → 9
+        assert_eq!(buckets[3], Some(9));
+    }
+
+    #[test]
+    fn record_does_not_touch_other_buckets() {
+        let mut buckets: [Option<u8>; 7] = [Some(10), Some(20), Some(30), None, None, None, None];
+        record_observation(&mut buckets, 3, 42);
+        assert_eq!(
+            buckets,
+            [Some(10), Some(20), Some(30), Some(42), None, None, None],
+            "only the target bucket may change"
+        );
     }
 
     // ---------- append_new_cycle ----------

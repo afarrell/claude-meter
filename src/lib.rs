@@ -76,7 +76,7 @@ fn render_d7(window: &Window, history: &mut History, now_ts: i64) -> String {
     let buckets_for_render: [Option<u8>; 7];
     match cycle::match_cycle(reset_ts, history) {
         Some(m) => {
-            cycle::apply_max_guard(&mut history.cycles[m].buckets, idx, pct);
+            cycle::record_observation(&mut history.cycles[m].buckets, idx, pct);
             buckets_for_render = history.cycles[m].buckets;
         }
         None => {
