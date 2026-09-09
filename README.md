@@ -14,6 +14,15 @@ Reading left to right: **model**, then a single char for **context-window
 baseline projection (no observation yet for that day), the brighter cells
 are observed daily peaks, and the brightest cell is today.
 
+Each cell is that day's own observed peak, independent of its neighbours.
+The peak rule applies only *within* a day (so mid-day rolling-window dips
+don't erase a busy morning) — it never reaches across days. So a later day
+can render a **shorter** bar than an earlier one when usage genuinely drops
+between days (a window reset, or a limit change that raises the token
+ceiling so the same consumption reports a lower percentage). The sparkline
+records what each day actually showed; it never back-fills or ratchets past
+days upward.
+
 ## Why this exists
 
 I'd been iterating on a bash status line for months — adding the weekly
@@ -64,6 +73,7 @@ cargo test
 - `tests/outer.rs` — integration tests that encode the bugs as named cases
   (`drift_does_not_collapse_idx_to_zero`,
   `max_guard_keeps_daily_peak_across_intraday_renders`,
+  `lower_usage_on_later_day_renders_shorter_bar_without_rewriting_history`,
   `cycle_rollover_appends_new_entry`,
   `layout_groups_left_meters_and_separates_d7`).
 - `src/cycle.rs` `mod tests` — unit coverage for cycle math: drift edges
