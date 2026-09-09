@@ -21,6 +21,10 @@ pub const YELLOW_BOLD: &str = "\x1b[1;33m";
 pub const GREY: &str = "\x1b[90m";
 pub const DIM: &str = "\x1b[38;5;238m";
 pub const PAST: &str = "\x1b[38;5;241m";
+/// Model-scoped weekly cap (e.g. Fable): gold so it never reads as a
+/// day-8 cell of the grey/white D7 sparkline it sits beside.
+pub const GOLD: &str = "\x1b[38;5;178m";
+pub const GOLD_BOLD: &str = "\x1b[1;38;5;220m";
 
 /// Color tier for the context-window bar.
 pub fn ctx_color(pct: u8) -> &'static str {
@@ -34,6 +38,15 @@ pub fn pace_color(delta: i32) -> &'static str {
     if delta > 30 { RED_BOLD }
     else if delta > 10 { YELLOW_BOLD }
     else { GREY }
+}
+
+/// Color tier for the model-scoped weekly cell. Same thresholds as
+/// `pace_color`, but the "fine" and "ahead of pace" tiers stay gold so the
+/// cell keeps its identity; only the danger tier borrows red.
+pub fn scoped_color(pct: u8, delta: i32) -> &'static str {
+    if pct >= 90 || delta > 30 { RED_BOLD }
+    else if delta > 10 { GOLD_BOLD }
+    else { GOLD }
 }
 
 #[cfg(test)]
@@ -96,5 +109,25 @@ mod tests {
     fn pace_color_red_above_30() {
         assert_eq!(pace_color(31), RED_BOLD);
         assert_eq!(pace_color(100), RED_BOLD);
+    }
+
+    #[test]
+    fn scoped_color_gold_when_on_pace_or_behind() {
+        assert_eq!(scoped_color(0, -50), GOLD);
+        assert_eq!(scoped_color(40, 0), GOLD);
+        assert_eq!(scoped_color(89, 10), GOLD);
+    }
+
+    #[test]
+    fn scoped_color_bold_gold_above_10_through_30() {
+        assert_eq!(scoped_color(40, 11), GOLD_BOLD);
+        assert_eq!(scoped_color(40, 30), GOLD_BOLD);
+    }
+
+    #[test]
+    fn scoped_color_red_above_30_or_at_90() {
+        assert_eq!(scoped_color(40, 31), RED_BOLD);
+        assert_eq!(scoped_color(90, -80), RED_BOLD);
+        assert_eq!(scoped_color(100, 0), RED_BOLD);
     }
 }

@@ -1,10 +1,13 @@
 # claude-meter
 
-Minimal Claude Code statusline written in Rust. Renders three things:
+Minimal Claude Code statusline written in Rust. Renders three things, plus
+one optional cell:
 
 - **Context bar** — current context-window utilization (one spark char)
 - **5-hour bar** — Anthropic's 5h rate-limit window (one spark char, color-coded by pace)
 - **7-day sparkline** — rolling weekly utilization across the last 7 days (seven spark chars)
+- **Scoped weekly cell** — a model-scoped weekly cap, when your plan has one
+  (one **gold** spark char, glued to the end of the sparkline)
 
 ![statusline preview](docs/statusline.svg)
 
@@ -13,6 +16,26 @@ Reading left to right: **model**, then a single char for **context-window
 **7-day rolling sparkline**. In the sparkline, dim cells are the on-pace
 baseline projection (no observation yet for that day), the brighter cells
 are observed daily peaks, and the brightest cell is today.
+
+### Scoped weekly cell (Fable)
+
+Some plans cap a single model at a fraction of the weekly allowance — as of
+2026-09, Fable can use half of a subscription's weekly credits. The API
+reports this as a `weekly_scoped` entry in its `limits[]` array, alongside
+the unscoped `weekly_all` total. When that entry is present, `claude-meter`
+appends **one gold cell** directly after the 7-day sparkline showing the
+scoped window's utilization. Gold keeps it from reading as an eighth day;
+the sparkline itself stays the total.
+
+The two numbers are independent: an all-Fable week pushes the gold cell up
+twice as fast as the sparkline, an all-Opus week leaves it at zero while the
+sparkline climbs. Pace coloring matches the other meters — plain gold when
+on pace, bold gold when running ahead of the fixed 7-day window, red at 90%
+or when far ahead. Stale (unrefreshed across the reset) renders in grey.
+
+Accounts without a scoped cap render exactly as before: the cell is purely
+additive and the layout is byte-identical when `limits[]` has no
+`weekly_scoped` entry.
 
 ## Why this exists
 
