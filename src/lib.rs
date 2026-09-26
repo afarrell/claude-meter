@@ -1,4 +1,5 @@
-//! Claude Code statusline renderer — D7 sparkline + H5 bar + context bar.
+//! Claude Code statusline renderer — D7 sparkline + H5 bar + context bar,
+//! plus an optional gold cell for a model-scoped weekly cap (e.g. Fable).
 //!
 //! Pure rendering core. All file I/O lives in `main.rs` so this library is
 //! trivially testable (string-in, string-out) and immune to filesystem
@@ -11,7 +12,7 @@ pub mod cache;
 pub mod cycle;
 pub mod history;
 
-pub use cache::{ApiCache, Window};
+pub use cache::{ApiCache, Limit, ModelScope, Scope, Window};
 pub use history::{Cycle, History};
 
 /// Parsed Claude Code statusline stdin payload.
@@ -38,19 +39,26 @@ pub fn render(
 
     let d7_out = render_d7(&cache.seven_day, history, now_ts);
     let h5_out = render_h5(&cache.five_hour, now_ts);
+    // Model-scoped weekly cap (Fable's half-allowance). Absent on accounts
+    // without one — then the line is byte-identical to the pre-scoped layout.
+    let scoped_out = cache
+        .scoped_weekly()
+        .map(|w| format!("{}{}", render_scoped(&w, now_ts), bar::RESET))
+        .unwrap_or_default();
 
     let ctx_pct = input.context_pct.min(100) as u8;
     let model_short = short_model(&input.model_id);
     let ctx_out = format!("{}{} {}", bar::ctx_color(ctx_pct), model_short, bar::bar(ctx_pct));
 
     format!(
-        "{}{}{}{} {}{}",
+        "{}{}{}{} {}{}{}",
         ctx_out,
         bar::RESET,
         h5_out,
         bar::RESET,
         d7_out,
-        bar::RESET
+        bar::RESET,
+        scoped_out
     )
 }
 
@@ -140,6 +148,29 @@ fn render_h5(window: &Window, now_ts: i64) -> String {
     let delta = (pct as i32) - elapsed_pct;
     let delta_clamped = delta.clamp(0, 100);
     format!("{}{}", bar::pace_color(delta_clamped), bar::bar(pct))
+}
+
+/// Render the model-scoped weekly cell (one gold spark char) with pace
+/// coloring against a fixed 7-day window ending at `resets_at`.
+///
+/// Sits directly after the D7 sparkline: it is the "how much of the
+/// scoped weekly allowance" companion to "how much of the total weekly
+/// allowance". Gold keeps it from reading as an eighth day.
+fn render_scoped(window: &Window, now_ts: i64) -> String {
+    let pct = window.utilization.clamp(0.0, 100.0) as u8;
+    let reset_ts = match window.resets_at {
+        Some(dt) => dt.timestamp(),
+        None => return format!("{}{}", bar::PAST, bar::bar(pct)),
+    };
+    // Stale (cache not refreshed across the reset): last known, in GREY —
+    // same honesty rule as the other meters, never a fabricated bar.
+    if now_ts > reset_ts {
+        return format!("{}{}", bar::GREY, bar::bar(pct));
+    }
+    let elapsed = (now_ts - (reset_ts - cycle::SEVEN_DAYS_S)).max(0);
+    let elapsed_pct = (elapsed * 100 / cycle::SEVEN_DAYS_S) as i32;
+    let delta = (pct as i32) - elapsed_pct;
+    format!("{}{}", bar::scoped_color(pct, delta), bar::bar(pct))
 }
 
 /// Strip "claude-" prefix and version suffix from a full model ID.
@@ -467,6 +498,77 @@ mod tests {
         let out = render_h5(&w, now);
         assert!(out.starts_with(bar::GREY), "elapsed_pct=50, pct=50 → on-pace GREY: {out:?}");
         assert!(!out.starts_with(bar::RED_BOLD), "should not be RED: {out:?}");
+    }
+
+    // ---------- render_scoped ----------
+
+    #[test]
+    fn render_scoped_no_resets_at_renders_past_color() {
+        let w = window(25.0, None);
+        assert_eq!(render_scoped(&w, 0), format!("{}{}", bar::PAST, bar::bar(25)));
+    }
+
+    #[test]
+    fn render_scoped_stale_renders_last_known_in_grey() {
+        let reset = ts(2026, 9, 16, 7);
+        let w = window(42.0, Some(Utc.timestamp_opt(reset, 0).unwrap()));
+        let out = render_scoped(&w, reset + 1);
+        assert_eq!(out, format!("{}{}", bar::GREY, bar::bar(42)));
+    }
+
+    #[test]
+    fn render_scoped_at_exact_reset_is_not_stale() {
+        let reset = ts(2026, 9, 16, 7);
+        let w = window(42.0, Some(Utc.timestamp_opt(reset, 0).unwrap()));
+        let out = render_scoped(&w, reset);
+        assert!(!out.starts_with(bar::GREY), "now == reset is not stale: {out:?}");
+    }
+
+    #[test]
+    fn render_scoped_gold_when_on_pace() {
+        // 3.5d into the week → elapsed_pct=50; pct=50 → delta=0 → GOLD.
+        let reset = ts(2026, 9, 16, 7);
+        let now = reset - cycle::SEVEN_DAYS_S / 2;
+        let w = window(50.0, Some(Utc.timestamp_opt(reset, 0).unwrap()));
+        assert_eq!(render_scoped(&w, now), format!("{}{}", bar::GOLD, bar::bar(50)));
+    }
+
+    #[test]
+    fn render_scoped_bold_gold_when_ahead_of_pace() {
+        // Day 0 (elapsed_pct=0); pct=20 → delta=20 → GOLD_BOLD.
+        let reset = ts(2026, 9, 16, 7);
+        let now = reset - cycle::SEVEN_DAYS_S;
+        let w = window(20.0, Some(Utc.timestamp_opt(reset, 0).unwrap()));
+        assert_eq!(render_scoped(&w, now), format!("{}{}", bar::GOLD_BOLD, bar::bar(20)));
+    }
+
+    #[test]
+    fn render_scoped_red_when_far_ahead_or_at_90() {
+        let reset = ts(2026, 9, 16, 7);
+        let now = reset - cycle::SEVEN_DAYS_S;
+        let w = window(31.0, Some(Utc.timestamp_opt(reset, 0).unwrap()));
+        assert!(render_scoped(&w, now).starts_with(bar::RED_BOLD), "delta 31 → RED");
+        let late = reset - 60;
+        let w90 = window(90.0, Some(Utc.timestamp_opt(reset, 0).unwrap()));
+        assert!(render_scoped(&w90, late).starts_with(bar::RED_BOLD), "pct 90 → RED");
+    }
+
+    #[test]
+    fn render_scoped_elapsed_pct_division_pinned() {
+        // 1.75d in (25% elapsed) with pct=25 → delta=0 → GOLD. A `/`→`%`
+        // mutant makes elapsed_pct=0 → delta=25 → GOLD_BOLD.
+        let reset = ts(2026, 9, 16, 7);
+        let now = reset - cycle::SEVEN_DAYS_S + cycle::SEVEN_DAYS_S / 4;
+        let w = window(25.0, Some(Utc.timestamp_opt(reset, 0).unwrap()));
+        assert!(render_scoped(&w, now).starts_with(bar::GOLD), "on-pace must be plain GOLD");
+    }
+
+    #[test]
+    fn render_scoped_clamps_out_of_range_utilization() {
+        let w = window(250.0, None);
+        assert!(render_scoped(&w, 0).ends_with('█'));
+        let w = window(-5.0, None);
+        assert!(render_scoped(&w, 0).ends_with('▁'));
     }
 
     /// Strip ANSI escape sequences for plain-text assertions.

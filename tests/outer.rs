@@ -26,7 +26,23 @@ fn cache_with_d7(pct: f64, resets_at: &str) -> ApiCache {
             utilization: pct,
             resets_at: Some(resets_at.parse().unwrap()),
         },
+        limits: vec![],
     }
+}
+
+/// Same cache plus a model-scoped weekly cap (the shape Anthropic added
+/// for Fable's half-allowance, 2026-09) sharing the D7 reset.
+fn cache_with_scoped(d7_pct: f64, scoped_pct: f64, resets_at: &str) -> ApiCache {
+    let mut c = cache_with_d7(d7_pct, resets_at);
+    c.limits.push(claude_meter::Limit {
+        kind: "weekly_scoped".into(),
+        percent: scoped_pct,
+        resets_at: Some(resets_at.parse().unwrap()),
+        scope: Some(claude_meter::Scope {
+            model: Some(claude_meter::ModelScope { display_name: Some("Fable".into()) }),
+        }),
+    });
+    c
 }
 
 /// Bug 2026-05-03 — "the growing first-day bump."
@@ -261,6 +277,40 @@ fn layout_groups_left_meters_and_separates_d7() {
         !plain.contains("  "),
         "layout has stray double-space: {plain:?}"
     );
+}
+
+/// With a model-scoped weekly cap the layout gains exactly one cell, glued
+/// to the D7 sparkline (8 chars in the right group), rendered in gold so it
+/// can't be mistaken for an eighth day. Everything to its left is unchanged.
+#[test]
+fn layout_appends_one_gold_scoped_cell_after_d7() {
+    let now = Utc.with_ymd_and_hms(2026, 9, 9, 12, 0, 0).unwrap();
+    let reset = "2026-09-16T07:00:00+00:00";
+
+    let mut h_plain = History::default();
+    let plain_out = render(&input(35), now, &cache_with_d7(7.0, reset), &mut h_plain);
+
+    let mut h_scoped = History::default();
+    let scoped_out = render(&input(35), now, &cache_with_scoped(7.0, 14.0, reset), &mut h_scoped);
+
+    // Byte-identical prefix: the scoped cell is purely additive.
+    assert!(
+        scoped_out.starts_with(&plain_out),
+        "scoped layout must extend the plain layout, not alter it:\n{plain_out:?}\n{scoped_out:?}"
+    );
+    assert!(!plain_out.contains(claude_meter::bar::GOLD), "no gold without a scoped cap");
+    // 14% on day 0 of the week is ahead of pace → the bold-gold tier.
+    assert!(
+        scoped_out.contains(claude_meter::bar::GOLD_BOLD),
+        "scoped cap ahead of pace renders in bold gold: {scoped_out:?}"
+    );
+
+    let parts: Vec<String> = strip_ansi(&scoped_out).split(' ').map(String::from).collect();
+    assert_eq!(parts.len(), 3, "still 3 space-separated groups: {parts:?}");
+    assert_eq!(parts[2].chars().count(), 8, "d7 (7) + scoped (1): {:?}", parts[2]);
+    // 14% → second spark char.
+    assert_eq!(parts[2].chars().last(), Some('▂'));
+    assert_eq!(h_plain, h_scoped, "scoped cell must not touch D7 history");
 }
 
 /// Strip ANSI escape sequences (color codes) from a string for layout testing.
