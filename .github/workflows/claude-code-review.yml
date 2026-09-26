@@ -1,0 +1,235 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+  # Manual re-trigger: re-run the full review+self-merge pipeline against
+  # an existing PR without pushing an empty commit. Use this when the
+  # first attempt failed for a transient reason.
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to re-review"
+        required: true
+        type: string
+
+jobs:
+  # Job 1: deterministically inspect the PR's changed files and decide
+  # whether this PR is allowed to self-merge. Sensitive paths are the
+  # ones where a wrong merge would compound — anything under .github/**
+  # and CODEOWNERS. No LLM involvement in this job, so prompt injection
+  # cannot flip the result.
+  check-paths:
+    name: Check for sensitive paths
+    runs-on: ubuntu-latest
+    outputs:
+      is_sensitive: ${{ steps.filter.outputs.is_sensitive }}
+      pr_number: ${{ steps.resolve.outputs.pr_number }}
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 1
+
+      - name: Resolve PR number
+        id: resolve
+        env:
+          PR_FROM_EVENT: ${{ github.event.pull_request.number }}
+          PR_FROM_INPUT: ${{ inputs.pr_number }}
+        run: |
+          # pull_request events provide the PR via event.pull_request.number;
+          # workflow_dispatch provides it via inputs.pr_number. Pick whichever
+          # is set and expose it as a job output for downstream jobs.
+          if [ -n "$PR_FROM_EVENT" ]; then
+            PR_NUMBER="$PR_FROM_EVENT"
+          elif [ -n "$PR_FROM_INPUT" ]; then
+            PR_NUMBER="$PR_FROM_INPUT"
+          else
+            echo "No PR number available (neither event nor input)" >&2
+            exit 1
+          fi
+          echo "Resolved PR number: $PR_NUMBER"
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Inspect changed files
+        id: filter
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.resolve.outputs.pr_number }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Delegate to a deterministic Python script. Any path under
+          # .github/** or CODEOWNERS is sensitive and blocks self-merge;
+          # everything else is eligible. The script writes
+          # is_sensitive=true|false to GITHUB_OUTPUT.
+          gh pr view "$PR_NUMBER" --repo "$REPO" --json files --jq '.files[].path' \
+            | python3 .github/scripts/check-sensitive-paths.py "$PR_NUMBER" "$REPO"
+
+  # Job 2: run the LLM review and record a verdict. This job has read-only
+  # access to contents — it literally cannot merge no matter what a prompt
+  # injection tells it to do. The model returns its verdict as structured
+  # JSON output (via --json-schema), which the action exposes as a workflow
+  # output. The verdict extraction step parses that output through a strict
+  # allowlist (APPROVE/HOLD), so anything unexpected falls back to HOLD
+  # (fail-closed). No tool permission is required for the verdict path —
+  # the model literally cannot bypass the gate by misusing tools.
+  review:
+    name: Claude code review
+    runs-on: ubuntu-latest
+    needs: check-paths
+    outputs:
+      verdict: ${{ steps.verdict.outputs.verdict }}
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+      id-token: write
+    env:
+      PR_NUMBER: ${{ needs.check-paths.outputs.pr_number }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code Review
+        id: claude-review
+        uses: anthropics/claude-code-action@6c0083bb7289c31716797a039b6367b3079cc46e # v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
+          plugins: 'code-review@claude-code-plugins'
+          # Use Claude Code's structured-output mode for the verdict.
+          # The --json-schema arg constrains the model's final response
+          # to a JSON object matching the schema. The action exposes that
+          # parsed JSON via outputs.structured_output, which the next step
+          # reads. Verdict transmission no longer goes through the tool
+          # permission system at all — the model literally cannot bypass
+          # the gate by misusing tools because there's no tool call involved.
+          # All MCP comment-posting tools remain available via the action's
+          # default allowlist (which we don't override here).
+          claude_args: |
+            --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["APPROVE","HOLD"]},"summary":{"type":"string","description":"One-sentence rationale for the verdict (shown in workflow logs only)."}},"required":["verdict","summary"],"additionalProperties":false}'
+          prompt: |
+            /code-review:code-review ${{ env.REPO }}/pull/${{ env.PR_NUMBER }}
+
+            After posting your review as a PR comment, return your merge
+            verdict as a JSON object matching this schema:
+
+              {
+                "verdict": "APPROVE" | "HOLD",
+                "summary": "<one-sentence rationale>"
+              }
+
+            Verdict meaning:
+              APPROVE  - no blocking concerns, ready to ship as-is
+              HOLD     - any blocking concern, however small
+
+            Err on the side of HOLD whenever you are uncertain. A hold is never
+            wrong — the human will adjudicate. A wrongful APPROVE ships a bug.
+
+            ---
+
+            Note: sensitive paths (.github/**, CODEOWNERS) are already handled
+            deterministically by a separate job upstream of this one. Focus
+            your judgment on the PR content itself.
+
+      - name: Extract verdict
+        id: verdict
+        env:
+          STRUCTURED_OUTPUT: ${{ steps.claude-review.outputs.structured_output }}
+        run: |
+          # Strict allowlist parsing. Any value other than exactly "APPROVE"
+          # falls back to HOLD so unexpected output (empty, malformed JSON,
+          # missing field, prompt injection attempts) fails closed.
+          if [ -z "$STRUCTURED_OUTPUT" ]; then
+            echo "structured_output is empty — verdict defaults to HOLD"
+            echo "verdict=HOLD" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Raw structured_output: $STRUCTURED_OUTPUT"
+          RAW=$(printf '%s' "$STRUCTURED_OUTPUT" | jq -r '.verdict // empty' 2>/dev/null || echo "")
+          SUMMARY=$(printf '%s' "$STRUCTURED_OUTPUT" | jq -r '.summary // empty' 2>/dev/null || echo "")
+          echo "Parsed verdict: $RAW"
+          echo "Parsed summary: $SUMMARY"
+          if [ "$RAW" = "APPROVE" ]; then
+            echo "verdict=APPROVE" >> "$GITHUB_OUTPUT"
+          else
+            echo "verdict=HOLD" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Job 3: self-merge if both gates pass. This job has write access but
+  # runs NO LLM code — it's pure bash + gh. The only reason to touch this
+  # job is to change the merge mechanics themselves, which is exactly
+  # the kind of change the check-paths job will flag as sensitive and
+  # block.
+  merge:
+    name: Self-merge if approved
+    runs-on: ubuntu-latest
+    needs: [check-paths, review]
+    if: |
+      needs.check-paths.outputs.is_sensitive == 'false' &&
+      needs.review.outputs.verdict == 'APPROVE'
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      # Resolved once from the check-paths job so the same value is used
+      # in both pull_request and workflow_dispatch triggers.
+      PR_NUMBER: ${{ needs.check-paths.outputs.pr_number }}
+      REPO: ${{ github.repository }}
+    steps:
+      # All interpolated values pass through env vars and are referenced as
+      # "$VARNAME" inside run: blocks. This protects against shell injection
+      # from user-controlled fields (PR title, body, branch names) — if we
+      # inlined ${{ github.event.pull_request.title }} directly, a PR titled
+      # `"; rm -rf / #` would execute as bash. Env-var expansion with double
+      # quotes treats the contents as a literal string.
+      - name: Ensure audit label exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create claude-self-merged \
+            --repo "$REPO" \
+            --color fbca04 \
+            --description "Merged by claude-review workflow after APPROVE verdict" \
+            2>/dev/null || true
+
+      - name: Apply audit label to PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label claude-self-merged
+
+      - name: Fetch PR title for merge subject
+        id: pr_meta
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Look up the title by number so the same step works for both
+          # pull_request (title available on github.event) and workflow_dispatch
+          # (no event payload — must query the API).
+          TITLE=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json title --jq '.title')
+          {
+            echo "title<<EOF"
+            printf '%s\n' "$TITLE"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Squash merge with audit-friendly commit message
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_TITLE: ${{ steps.pr_meta.outputs.title }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh pr merge "$PR_NUMBER" \
+            --repo "$REPO" \
+            --squash --delete-branch \
+            --subject "$PR_TITLE (#$PR_NUMBER)" \
+            --body "Self-merged by claude-review after APPROVE verdict.
+          Review run: $RUN_URL
+          Path check: passed (no sensitive paths touched)"
