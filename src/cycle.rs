@@ -96,7 +96,7 @@ pub fn record_observation(buckets: &mut [Option<u8>; 7], idx: usize, pct: u8) ->
 pub fn append_new_cycle(history: &mut History, reset_ts: i64, idx: usize, pct: u8) {
     let mut buckets: [Option<u8>; 7] = [None; 7];
     buckets[idx] = Some(pct);
-    history.cycles.push(Cycle { reset: reset_ts, buckets });
+    history.cycles.push(Cycle { reset: reset_ts, buckets, scoped: [None; 7] });
 }
 
 /// Forward-fill nulls in past positions for rendering. A null past bucket
@@ -120,7 +120,7 @@ mod tests {
 
     fn h(cycles: Vec<(i64, [Option<u8>; 7])>) -> History {
         History {
-            cycles: cycles.into_iter().map(|(reset, buckets)| Cycle { reset, buckets }).collect(),
+            cycles: cycles.into_iter().map(|(reset, buckets)| Cycle { reset, buckets, scoped: [None; 7] }).collect(),
         }
     }
 

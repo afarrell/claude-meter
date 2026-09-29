@@ -13,6 +13,7 @@ fn input(pct: u32) -> StatuslineInput {
         model_id: "claude-opus-4-7".into(),
         context_pct: pct,
         cwd: "/tmp".into(),
+        max_width: None,
     }
 }
 
@@ -279,11 +280,11 @@ fn layout_groups_left_meters_and_separates_d7() {
     );
 }
 
-/// With a model-scoped weekly cap the layout gains exactly one cell, glued
-/// to the D7 sparkline (8 chars in the right group), rendered in gold so it
-/// can't be mistaken for an eighth day. Everything to its left is unchanged.
+/// With a model-scoped weekly cap the layout gains a second 7-day
+/// sparkline (Fable), one space after the total sparkline, in its own violet
+/// family. Everything to its left is unchanged.
 #[test]
-fn layout_appends_one_gold_scoped_cell_after_d7() {
+fn layout_appends_fable_sparkline_beside_d7() {
     let now = Utc.with_ymd_and_hms(2026, 9, 9, 12, 0, 0).unwrap();
     let reset = "2026-09-16T07:00:00+00:00";
 
@@ -293,24 +294,50 @@ fn layout_appends_one_gold_scoped_cell_after_d7() {
     let mut h_scoped = History::default();
     let scoped_out = render(&input(35), now, &cache_with_scoped(7.0, 14.0, reset), &mut h_scoped);
 
-    // Byte-identical prefix: the scoped cell is purely additive.
     assert!(
         scoped_out.starts_with(&plain_out),
         "scoped layout must extend the plain layout, not alter it:\n{plain_out:?}\n{scoped_out:?}"
     );
-    assert!(!plain_out.contains(claude_meter::bar::GOLD), "no gold without a scoped cap");
-    // 14% on day 0 of the week is ahead of pace → the bold-gold tier.
+    assert!(!plain_out.contains(claude_meter::bar::FABLE), "no Fable colours without a scoped cap");
+    // 14% on day 0 of the week is ahead of pace → the pink tier.
     assert!(
-        scoped_out.contains(claude_meter::bar::GOLD_BOLD),
-        "scoped cap ahead of pace renders in bold gold: {scoped_out:?}"
+        scoped_out.contains(claude_meter::bar::FABLE_BOLD),
+        "scoped cap ahead of pace renders pink: {scoped_out:?}"
     );
 
     let parts: Vec<String> = strip_ansi(&scoped_out).split(' ').map(String::from).collect();
-    assert_eq!(parts.len(), 3, "still 3 space-separated groups: {parts:?}");
-    assert_eq!(parts[2].chars().count(), 8, "d7 (7) + scoped (1): {:?}", parts[2]);
-    // 14% → second spark char.
-    assert_eq!(parts[2].chars().last(), Some('▂'));
-    assert_eq!(h_plain, h_scoped, "scoped cell must not touch D7 history");
+    assert_eq!(parts.len(), 4, "model, left pair, total, Fable: {parts:?}");
+    assert_eq!(parts[2].chars().count(), 7, "total sparkline: {:?}", parts[2]);
+    assert_eq!(parts[3].chars().count(), 7, "Fable sparkline: {:?}", parts[3]);
+    // 14% → second spark char, in today's (first) cell.
+    assert_eq!(parts[3].chars().next(), Some('▂'));
+
+    // The total history is identical; only the scoped buckets differ.
+    assert_eq!(h_plain.cycles[0].buckets, h_scoped.cycles[0].buckets);
+    assert_eq!(h_scoped.cycles[0].scoped[0], Some(14));
+}
+
+/// A terminal too narrow for both sparklines wraps Fable onto a second row,
+/// starting in the same column as the total sparkline so days line up.
+#[test]
+fn narrow_terminal_wraps_fable_under_d7() {
+    let now = Utc.with_ymd_and_hms(2026, 9, 9, 12, 0, 0).unwrap();
+    let cache = cache_with_scoped(7.0, 14.0, "2026-09-16T07:00:00+00:00");
+
+    // "opus" + " " + 2 meters + " " + 7 + " " + 7 = 23 columns on one line.
+    let mut wide = input(35);
+    wide.max_width = Some(23);
+    let out = render(&wide, now, &cache, &mut History::default());
+    assert!(!out.contains('\n'), "fits exactly: one line: {out:?}");
+
+    let mut narrow = input(35);
+    narrow.max_width = Some(22);
+    let out = strip_ansi(&render(&narrow, now, &cache, &mut History::default()));
+    let lines: Vec<&str> = out.split('\n').collect();
+    assert_eq!(lines.len(), 2, "{out:?}");
+    let d7_col = lines[0].chars().position(|c| c == ' ').unwrap() + 4;
+    assert_eq!(lines[1].chars().take_while(|c| *c == ' ').count(), d7_col, "{lines:?}");
+    assert_eq!(lines[1].trim_start().chars().count(), 7);
 }
 
 /// Strip ANSI escape sequences (color codes) from a string for layout testing.
