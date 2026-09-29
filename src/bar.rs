@@ -21,10 +21,12 @@ pub const YELLOW_BOLD: &str = "\x1b[1;33m";
 pub const GREY: &str = "\x1b[90m";
 pub const DIM: &str = "\x1b[38;5;238m";
 pub const PAST: &str = "\x1b[38;5;241m";
-/// Model-scoped weekly cap (e.g. Fable): gold so it never reads as a
-/// day-8 cell of the grey/white D7 sparkline it sits beside.
-pub const GOLD: &str = "\x1b[38;5;178m";
-pub const GOLD_BOLD: &str = "\x1b[1;38;5;220m";
+/// Model-scoped weekly cap (Fable) sparkline: its own violet family so it
+/// never borrows the yellow/red pace-warning hues of the total sparkline.
+/// Past days, today on pace, and today ahead of pace (pink highlight).
+pub const FABLE_PAST: &str = "\x1b[38;5;97m";
+pub const FABLE: &str = "\x1b[38;5;141m";
+pub const FABLE_BOLD: &str = "\x1b[1;38;5;213m";
 
 /// Color tier for the context-window bar.
 pub fn ctx_color(pct: u8) -> &'static str {
@@ -40,13 +42,13 @@ pub fn pace_color(delta: i32) -> &'static str {
     else { GREY }
 }
 
-/// Color tier for the model-scoped weekly cell. Same thresholds as
-/// `pace_color`, but the "fine" and "ahead of pace" tiers stay gold so the
-/// cell keeps its identity; only the danger tier borrows red.
+/// Color tier for today's cell of the scoped (Fable) sparkline. Same
+/// thresholds as the total sparkline's today cell, but "on pace" and
+/// "ahead of pace" stay in the violet family; only danger borrows red.
 pub fn scoped_color(pct: u8, delta: i32) -> &'static str {
     if pct >= 90 || delta > 30 { RED_BOLD }
-    else if delta > 10 { GOLD_BOLD }
-    else { GOLD }
+    else if delta > 10 { FABLE_BOLD }
+    else { FABLE }
 }
 
 #[cfg(test)]
@@ -112,16 +114,16 @@ mod tests {
     }
 
     #[test]
-    fn scoped_color_gold_when_on_pace_or_behind() {
-        assert_eq!(scoped_color(0, -50), GOLD);
-        assert_eq!(scoped_color(40, 0), GOLD);
-        assert_eq!(scoped_color(89, 10), GOLD);
+    fn scoped_color_violet_when_on_pace_or_behind() {
+        assert_eq!(scoped_color(0, -50), FABLE);
+        assert_eq!(scoped_color(40, 0), FABLE);
+        assert_eq!(scoped_color(89, 10), FABLE);
     }
 
     #[test]
-    fn scoped_color_bold_gold_above_10_through_30() {
-        assert_eq!(scoped_color(40, 11), GOLD_BOLD);
-        assert_eq!(scoped_color(40, 30), GOLD_BOLD);
+    fn scoped_color_pink_above_10_through_30() {
+        assert_eq!(scoped_color(40, 11), FABLE_BOLD);
+        assert_eq!(scoped_color(40, 30), FABLE_BOLD);
     }
 
     #[test]

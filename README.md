@@ -6,8 +6,8 @@ one optional cell:
 - **Context bar** — current context-window utilization (one spark char)
 - **5-hour bar** — Anthropic's 5h rate-limit window (one spark char, color-coded by pace)
 - **7-day sparkline** — rolling weekly utilization across the last 7 days (seven spark chars)
-- **Scoped weekly cell** — a model-scoped weekly cap, when your plan has one
-  (one **gold** spark char, glued to the end of the sparkline)
+- **Scoped weekly sparkline**: a model-scoped weekly cap (Fable), when your
+  plan has one: a second 7-day sparkline in violet, one space after the first
 
 ![statusline preview](docs/statusline.svg)
 
@@ -17,25 +17,30 @@ Reading left to right: **model**, then a single char for **context-window
 baseline projection (no observation yet for that day), the brighter cells
 are observed daily peaks, and the brightest cell is today.
 
-### Scoped weekly cell (Fable)
+### Scoped weekly sparkline (Fable)
 
-Some plans cap a single model at a fraction of the weekly allowance — as of
+Some plans cap a single model at a fraction of the weekly allowance: as of
 2026-09, Fable can use half of a subscription's weekly credits. The API
 reports this as a `weekly_scoped` entry in its `limits[]` array, alongside
 the unscoped `weekly_all` total. When that entry is present, `claude-meter`
-appends **one gold cell** directly after the 7-day sparkline showing the
-scoped window's utilization. Gold keeps it from reading as an eighth day;
-the sparkline itself stays the total.
+records it per day (the `scoped` array of each cycle in the history file)
+and renders a **second 7-day sparkline** after the total one, on the same
+day grid, so each day's Fable use sits next to that day's total.
 
-The two numbers are independent: an all-Fable week pushes the gold cell up
-twice as fast as the sparkline, an all-Opus week leaves it at zero while the
-sparkline climbs. Pace coloring matches the other meters — plain gold when
-on pace, bold gold when running ahead of the fixed 7-day window, red at 90%
-or when far ahead. Stale (unrefreshed across the reset) renders in grey.
+The two numbers are independent: an all-Fable week pushes the Fable
+sparkline up twice as fast as the total, an all-Opus week leaves it at zero
+while the total climbs. Fable has its own colours so it never borrows the
+total's warning hues: muted violet for past days, violet for today on pace,
+bold pink for today ahead of pace (the total uses yellow for that), and red
+at 90% or far ahead, shared by both. Stale renders as grey dots.
 
-Accounts without a scoped cap render exactly as before: the cell is purely
-additive and the layout is byte-identical when `limits[]` has no
-`weekly_scoped` entry.
+**Narrow terminals.** Claude Code sets `COLUMNS` to the terminal width; the
+wrapper script sets `CLAUDE_METER_RESERVE` to the width it appends after the
+meter (cwd, branch, hints). When both sparklines don't fit, the Fable one
+wraps onto a second line, starting in the same column as the total so the
+days line up.
+
+Accounts without a scoped cap render exactly as before.
 
 ## Why this exists
 

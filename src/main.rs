@@ -81,5 +81,18 @@ fn parse_input(json: &str) -> Result<StatuslineInput> {
             .and_then(|x| x.as_str())
             .unwrap_or("")
             .to_string(),
+        max_width: max_width(),
     })
+}
+
+/// Columns this output may use: `COLUMNS` (Claude Code sets it to the
+/// terminal width before running the statusline) minus
+/// `CLAUDE_METER_RESERVE`, the width the wrapper script appends after us.
+fn max_width() -> Option<usize> {
+    let cols: usize = env::var("COLUMNS").ok()?.trim().parse().ok()?;
+    let reserve: usize = env::var("CLAUDE_METER_RESERVE")
+        .ok()
+        .and_then(|r| r.trim().parse().ok())
+        .unwrap_or(0);
+    Some(cols.saturating_sub(reserve))
 }
