@@ -21,12 +21,12 @@ pub const YELLOW_BOLD: &str = "\x1b[1;33m";
 pub const GREY: &str = "\x1b[90m";
 pub const DIM: &str = "\x1b[38;5;238m";
 pub const PAST: &str = "\x1b[38;5;241m";
-/// Model-scoped weekly cap (Fable) sparkline: its own violet family so it
-/// never borrows the yellow/red pace-warning hues of the total sparkline.
-/// Past days, today on pace, and today ahead of pace (pink highlight).
-pub const FABLE_PAST: &str = "\x1b[38;5;97m";
-pub const FABLE: &str = "\x1b[38;5;141m";
-pub const FABLE_BOLD: &str = "\x1b[1;38;5;213m";
+/// Ahead-of-pace warning for the model-scoped weekly cap (Fable): bold
+/// purple, standing in for the total sparkline's yellow. The Fable sparkline
+/// is otherwise coloured exactly like the total (grey past days, plain today
+/// on pace), so purple only ever means "over the limit for this point in
+/// the week".
+pub const FABLE_WARN: &str = "\x1b[1;38;5;135m";
 
 /// Color tier for the context-window bar.
 pub fn ctx_color(pct: u8) -> &'static str {
@@ -43,12 +43,13 @@ pub fn pace_color(delta: i32) -> &'static str {
 }
 
 /// Color tier for today's cell of the scoped (Fable) sparkline. Same
-/// thresholds as the total sparkline's today cell, but "on pace" and
-/// "ahead of pace" stay in the violet family; only danger borrows red.
+/// policy and thresholds as the total sparkline's today cell: plain when on
+/// pace, red at >=90% or far ahead. The only difference is the "ahead of
+/// pace" tier, which is purple instead of yellow.
 pub fn scoped_color(pct: u8, delta: i32) -> &'static str {
     if pct >= 90 || delta > 30 { RED_BOLD }
-    else if delta > 10 { FABLE_BOLD }
-    else { FABLE }
+    else if delta > 10 { FABLE_WARN }
+    else { RESET }
 }
 
 #[cfg(test)]
@@ -114,16 +115,16 @@ mod tests {
     }
 
     #[test]
-    fn scoped_color_violet_when_on_pace_or_behind() {
-        assert_eq!(scoped_color(0, -50), FABLE);
-        assert_eq!(scoped_color(40, 0), FABLE);
-        assert_eq!(scoped_color(89, 10), FABLE);
+    fn scoped_color_plain_when_on_pace_or_behind() {
+        assert_eq!(scoped_color(0, -50), RESET);
+        assert_eq!(scoped_color(40, 0), RESET);
+        assert_eq!(scoped_color(89, 10), RESET);
     }
 
     #[test]
-    fn scoped_color_pink_above_10_through_30() {
-        assert_eq!(scoped_color(40, 11), FABLE_BOLD);
-        assert_eq!(scoped_color(40, 30), FABLE_BOLD);
+    fn scoped_color_purple_above_10_through_30() {
+        assert_eq!(scoped_color(40, 11), FABLE_WARN);
+        assert_eq!(scoped_color(40, 30), FABLE_WARN);
     }
 
     #[test]

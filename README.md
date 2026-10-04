@@ -7,7 +7,7 @@ one optional cell:
 - **5-hour bar** — Anthropic's 5h rate-limit window (one spark char, color-coded by pace)
 - **7-day sparkline** — rolling weekly utilization across the last 7 days (seven spark chars)
 - **Scoped weekly sparkline**: a model-scoped weekly cap (Fable), when your
-  plan has one: a second 7-day sparkline in violet, one space after the first
+  plan has one: a second 7-day sparkline, one space after the first
 
 ![statusline preview](docs/statusline.svg)
 
@@ -29,10 +29,12 @@ day grid, so each day's Fable use sits next to that day's total.
 
 The two numbers are independent: an all-Fable week pushes the Fable
 sparkline up twice as fast as the total, an all-Opus week leaves it at zero
-while the total climbs. Fable has its own colours so it never borrows the
-total's warning hues: muted violet for past days, violet for today on pace,
-bold pink for today ahead of pace (the total uses yellow for that), and red
-at 90% or far ahead, shared by both. Stale renders as grey dots.
+while the total climbs. Both sparklines follow the same colouring policy:
+grey for past days, plain for today when on pace, and a colour only when
+today is over the limit for that point in the weekly cycle. The one
+difference is the ahead-of-pace warning: **purple** on the Fable sparkline,
+yellow on the total. Red at 90% or far ahead is shared by both. Stale
+renders as grey dots.
 
 **Narrow terminals.** Claude Code sets `COLUMNS` to the terminal width; the
 wrapper script sets `CLAUDE_METER_RESERVE` to the width it appends after the

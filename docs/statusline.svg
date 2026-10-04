@@ -7,9 +7,9 @@
          #3a3a3a  — null / baseline (grey 238) | future-day projection or no-data
          #8a8a8a  — past-day peaks (grey 241)  | observed daily peaks
          #ffffff  — current day (default fg)   | "today" in the cycle
-         #875faf: scoped cap past days (97)     | Fable sparkline
-         #af87ff: scoped cap today (141)        | pink 213 when ahead of pace -->
+         Fable sparkline uses the same tiers; ahead of pace is bold purple
+         (135, #af5fff) where the total uses yellow -->
   <text x="24" y="46" font-size="28" xml:space="preserve">
-    <tspan fill="#6e6e6e">opus </tspan><tspan fill="#6e6e6e">▃</tspan><tspan fill="#6e6e6e">▂</tspan><tspan fill="#3a3a3a"> </tspan><tspan fill="#3a3a3a">▂</tspan><tspan fill="#8a8a8a">▃▄▄</tspan><tspan fill="#ffffff">▅</tspan><tspan fill="#3a3a3a">▇█</tspan><tspan fill="#3a3a3a"> </tspan><tspan fill="#875faf">▂▄▅</tspan><tspan fill="#af87ff">▆</tspan><tspan fill="#3a3a3a">▇█</tspan>
+    <tspan fill="#6e6e6e">opus </tspan><tspan fill="#6e6e6e">▃</tspan><tspan fill="#6e6e6e">▂</tspan><tspan fill="#3a3a3a"> </tspan><tspan fill="#3a3a3a">▂</tspan><tspan fill="#8a8a8a">▃▄▄</tspan><tspan fill="#ffffff">▅</tspan><tspan fill="#3a3a3a">▇█</tspan><tspan fill="#3a3a3a"> </tspan><tspan fill="#8a8a8a">▂▄▅</tspan><tspan fill="#ffffff">▆</tspan><tspan fill="#3a3a3a">▇█</tspan>
   </text>
 </svg>
