@@ -171,7 +171,7 @@ fn render_scoped(d7: &Window, scoped: &Window, history: &mut History, now_ts: i6
     let pct = scoped.utilization.clamp(0.0, 100.0) as u8;
     let reset_ts = match d7.resets_at.or(scoped.resets_at) {
         Some(dt) => dt.timestamp(),
-        None => return format!("{}{}", bar::FABLE_PAST, bar::bar(pct)),
+        None => return format!("{}{}", bar::PAST, bar::bar(pct)),
     };
     // Stale (cache not refreshed across the reset): same honesty rule as D7.
     if now_ts > reset_ts {
@@ -197,7 +197,9 @@ fn render_scoped(d7: &Window, scoped: &Window, history: &mut History, now_ts: i6
 
     let elapsed_pct = ((now_ts - cycle_start) * 100 / cycle_len) as i32;
     let delta = (pct as i32) - elapsed_pct;
-    spark_cells(&display, idx, bar::scoped_color(pct, delta), bar::FABLE_PAST)
+    // Same colouring policy as the total: grey past days, plain today unless
+    // ahead of pace. Purple (not yellow) marks ahead-of-pace for Fable.
+    spark_cells(&display, idx, bar::scoped_color(pct, delta), bar::PAST)
 }
 
 /// Strip "claude-" prefix and version suffix from a full model ID.
@@ -543,7 +545,7 @@ mod tests {
     fn render_scoped_no_resets_at_renders_single_past_cell() {
         let mut h = History::default();
         let out = render_scoped(&window(10.0, None), &window(25.0, None), &mut h, 0);
-        assert_eq!(out, format!("{}{}", bar::FABLE_PAST, bar::bar(25)));
+        assert_eq!(out, format!("{}{}", bar::PAST, bar::bar(25)));
     }
 
     #[test]
@@ -574,7 +576,7 @@ mod tests {
     }
 
     #[test]
-    fn render_scoped_past_days_violet_future_dim() {
+    fn render_scoped_past_days_grey_future_dim() {
         let reset = ts(2026, 9, 16, 7);
         let now = reset - cycle::SEVEN_DAYS_S + 3 * 86_400 + 60; // idx 3
         let mut h = History {
@@ -585,29 +587,31 @@ mod tests {
             }],
         };
         let out = scoped_at(30.0, 50.0, reset, now, &mut h);
-        assert_eq!(out.matches(bar::FABLE_PAST).count(), 3, "{out:?}");
+        assert_eq!(out.matches(bar::PAST).count(), 3, "past days grey like the total: {out:?}");
+        assert!(!out.contains(bar::FABLE_WARN), "on-pace Fable must not be purple: {out:?}");
         assert_eq!(out.matches(bar::DIM).count(), 3, "{out:?}");
         assert_eq!(out.chars().filter(|c| bar::SPARK_CHARS.contains(c)).count(), 7);
     }
 
     #[test]
-    fn render_scoped_today_violet_when_on_pace() {
-        // 3.5d into the week → elapsed_pct=50; pct=50 → delta=0 → FABLE.
+    fn render_scoped_today_plain_when_on_pace() {
+        // 3.5d into the week → elapsed_pct=50; pct=50 → delta=0 → plain.
         let reset = ts(2026, 9, 16, 7);
         let now = reset - cycle::SEVEN_DAYS_S / 2;
         let mut h = History::default();
         let out = scoped_at(10.0, 50.0, reset, now, &mut h);
-        assert!(out.contains(&format!("{}{}", bar::FABLE, bar::bar(50))), "{out:?}");
+        assert!(out.contains(&format!("{}{}", bar::RESET, bar::bar(50))), "{out:?}");
+        assert!(!out.contains(bar::FABLE_WARN), "{out:?}");
     }
 
     #[test]
-    fn render_scoped_today_pink_when_ahead_of_pace() {
-        // Day 0 (elapsed_pct=0); pct=20 → delta=20 → FABLE_BOLD.
+    fn render_scoped_today_purple_when_ahead_of_pace() {
+        // Day 0 (elapsed_pct=0); pct=20 → delta=20 → FABLE_WARN.
         let reset = ts(2026, 9, 16, 7);
         let now = reset - cycle::SEVEN_DAYS_S;
         let mut h = History::default();
         let out = scoped_at(10.0, 20.0, reset, now, &mut h);
-        assert!(out.starts_with(&format!("{}{}", bar::FABLE_BOLD, bar::bar(20))), "{out:?}");
+        assert!(out.starts_with(&format!("{}{}", bar::FABLE_WARN, bar::bar(20))), "{out:?}");
     }
 
     #[test]
@@ -623,14 +627,14 @@ mod tests {
 
     #[test]
     fn render_scoped_elapsed_pct_division_pinned() {
-        // 1.75d in (25% elapsed) with pct=25 → delta=0 → FABLE. A `/`→`%`
-        // mutant makes elapsed_pct=0 → delta=25 → FABLE_BOLD.
+        // 1.75d in (25% elapsed) with pct=25 → delta=0 → plain. A `/`→`%`
+        // mutant makes elapsed_pct=0 → delta=25 → FABLE_WARN.
         let reset = ts(2026, 9, 16, 7);
         let now = reset - cycle::SEVEN_DAYS_S + cycle::SEVEN_DAYS_S / 4;
         let mut h = History::default();
         let out = scoped_at(10.0, 25.0, reset, now, &mut h);
-        assert!(!out.contains(bar::FABLE_BOLD), "on-pace must be plain FABLE: {out:?}");
-        assert!(out.contains(bar::FABLE), "{out:?}");
+        assert!(!out.contains(bar::FABLE_WARN), "on-pace must not be purple: {out:?}");
+        assert!(out.contains(&format!("{}{}", bar::RESET, bar::bar(25))), "{out:?}");
     }
 
     #[test]

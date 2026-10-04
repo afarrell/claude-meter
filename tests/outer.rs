@@ -281,8 +281,9 @@ fn layout_groups_left_meters_and_separates_d7() {
 }
 
 /// With a model-scoped weekly cap the layout gains a second 7-day
-/// sparkline (Fable), one space after the total sparkline, in its own violet
-/// family. Everything to its left is unchanged.
+/// sparkline (Fable), one space after the total sparkline, coloured like the
+/// total except that ahead-of-pace is purple. Everything to its left is
+/// unchanged.
 #[test]
 fn layout_appends_fable_sparkline_beside_d7() {
     let now = Utc.with_ymd_and_hms(2026, 9, 9, 12, 0, 0).unwrap();
@@ -298,11 +299,11 @@ fn layout_appends_fable_sparkline_beside_d7() {
         scoped_out.starts_with(&plain_out),
         "scoped layout must extend the plain layout, not alter it:\n{plain_out:?}\n{scoped_out:?}"
     );
-    assert!(!plain_out.contains(claude_meter::bar::FABLE), "no Fable colours without a scoped cap");
-    // 14% on day 0 of the week is ahead of pace → the pink tier.
+    assert!(!plain_out.contains(claude_meter::bar::FABLE_WARN), "no purple without a scoped cap");
+    // 14% on day 0 of the week is ahead of pace → the purple warning tier.
     assert!(
-        scoped_out.contains(claude_meter::bar::FABLE_BOLD),
-        "scoped cap ahead of pace renders pink: {scoped_out:?}"
+        scoped_out.contains(claude_meter::bar::FABLE_WARN),
+        "scoped cap ahead of pace renders purple: {scoped_out:?}"
     );
 
     let parts: Vec<String> = strip_ansi(&scoped_out).split(' ').map(String::from).collect();
