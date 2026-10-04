@@ -11,9 +11,13 @@ pub mod bar;
 pub mod cache;
 pub mod cycle;
 pub mod history;
+pub mod state;
 
 pub use cache::{ApiCache, Limit, ModelScope, Scope, Window};
 pub use history::{Cycle, History};
+pub use state::{snapshot, Snapshot};
+
+use state::{FiveHour, Weekly};
 
 /// Parsed Claude Code statusline stdin payload.
 #[derive(Debug, Clone)]
@@ -92,114 +96,56 @@ fn spark_cells(display: &[Option<u8>; 7], idx: usize, today: &str, past: &str) -
 
 /// Render the D7 sparkline and update history with the current observation.
 fn render_d7(window: &Window, history: &mut History, now_ts: i64) -> String {
-    let reset_ts = match window.resets_at {
-        Some(dt) => dt.timestamp(),
-        None => return format!("{}{}", bar::PAST, bar::bar(window.utilization as u8)),
-    };
-
-    // Stale: reset is in the past (cache wasn't refreshed before rollover).
-    // Render the dim baseline in GREY — we don't know current bucket state, so
-    // showing fabricated full red bars (the prior behavior) misleads the user.
-    if now_ts > reset_ts {
-        return format!("{}·······", bar::GREY);
-    }
-
-    let cycle_start = cycle::cycle_start_for_reset(reset_ts, history);
-    let cycle_len = (reset_ts - cycle_start).max(1);
-    let idx = cycle::bucket_idx(now_ts, cycle_start, cycle_len);
-    let pct = window.utilization as u8;
-
-    let buckets_for_render: [Option<u8>; 7];
-    match cycle::match_cycle(reset_ts, history) {
-        Some(m) => {
-            cycle::record_observation(&mut history.cycles[m].buckets, idx, pct);
-            buckets_for_render = history.cycles[m].buckets;
-        }
-        None => {
-            cycle::append_new_cycle(history, reset_ts, idx, pct);
-            buckets_for_render = history.cycles.last().unwrap().buckets;
+    match state::weekly(window, history, now_ts) {
+        Weekly::NoReset { pct } => format!("{}{}", bar::PAST, bar::bar(pct)),
+        // Stale: reset is in the past (cache wasn't refreshed before rollover).
+        // Render the dim baseline in GREY — we don't know current bucket state, so
+        // showing fabricated full red bars (the prior behavior) misleads the user.
+        Weekly::Stale { .. } => format!("{}·······", bar::GREY),
+        Weekly::Live(w) => {
+            let delta = w.pace();
+            let current_color = if w.pct >= 90 || delta > 30 {
+                bar::RED_BOLD
+            } else if delta > 10 {
+                bar::YELLOW_BOLD
+            } else {
+                "\x1b[0m"
+            };
+            spark_cells(&w.daily, w.today, current_color, bar::PAST)
         }
     }
-
-    let mut display = buckets_for_render;
-    cycle::forward_fill(&mut display, idx);
-
-    let elapsed_pct = ((now_ts - cycle_start) * 100 / cycle_len) as i32;
-    let delta = (pct as i32) - elapsed_pct;
-    let current_color = if pct >= 90 || delta > 30 {
-        bar::RED_BOLD
-    } else if delta > 10 {
-        bar::YELLOW_BOLD
-    } else {
-        "\x1b[0m"
-    };
-
-    spark_cells(&display, idx, current_color, bar::PAST)
 }
 
 /// Render the H5 five-hour bar with pace coloring.
 fn render_h5(window: &Window, now_ts: i64) -> String {
-    let pct = window.utilization as u8;
-    let reset_ts = match window.resets_at {
-        Some(dt) => dt.timestamp(),
-        None => return format!("{}{}", bar::PAST, bar::bar(pct)),
-    };
-    // Stale: window rolled over before the cache could refresh. Render the
-    // last known utilization in GREY — honest "stale, may be out of date"
-    // signal instead of a fabricated full red bar that lies about usage.
-    if now_ts > reset_ts {
-        return format!("{}{}", bar::GREY, bar::bar(pct));
+    match state::five_hour(window, now_ts) {
+        FiveHour::NoReset { pct } => format!("{}{}", bar::PAST, bar::bar(pct)),
+        // Stale: window rolled over before the cache could refresh. Render the
+        // last known utilization in GREY — honest "stale, may be out of date"
+        // signal instead of a fabricated full red bar that lies about usage.
+        FiveHour::Stale { pct } => format!("{}{}", bar::GREY, bar::bar(pct)),
+        FiveHour::Live { pct, .. } if pct >= 90 => format!("{}{}", bar::RED_BOLD, bar::bar(pct)),
+        FiveHour::Live { pct, elapsed_pct } => {
+            let delta_clamped = (pct as i32 - elapsed_pct).clamp(0, 100);
+            format!("{}{}", bar::pace_color(delta_clamped), bar::bar(pct))
+        }
     }
-    if pct >= 90 {
-        return format!("{}{}", bar::RED_BOLD, bar::bar(pct));
-    }
-    let elapsed = now_ts - (reset_ts - 18_000);
-    let elapsed_pct = (elapsed * 100 / 18_000) as i32;
-    let delta = (pct as i32) - elapsed_pct;
-    let delta_clamped = delta.clamp(0, 100);
-    format!("{}{}", bar::pace_color(delta_clamped), bar::bar(pct))
 }
 
 /// Render the model-scoped weekly cap (Fable) as a 7-day sparkline and
 /// record today's observation in `history`.
 ///
-/// The scoped cap shares the total weekly window's reset, so it uses the
-/// same cycle and day grid as the D7 sparkline (`render_d7` must run first
-/// so the cycle exists). Pace is measured against that cycle, so a reset
-/// date Anthropic moves is tracked the same way for both sparklines.
+/// Shares the D7 cycle and day grid (`render_d7` must run first so the
+/// cycle exists); see `state::scoped`.
 fn render_scoped(d7: &Window, scoped: &Window, history: &mut History, now_ts: i64) -> String {
-    let pct = scoped.utilization.clamp(0.0, 100.0) as u8;
-    let reset_ts = match d7.resets_at.or(scoped.resets_at) {
-        Some(dt) => dt.timestamp(),
-        None => return format!("{}{}", bar::PAST, bar::bar(pct)),
-    };
-    // Stale (cache not refreshed across the reset): same honesty rule as D7.
-    if now_ts > reset_ts {
-        return format!("{}·······", bar::GREY);
+    match state::scoped(d7, scoped, history, now_ts) {
+        Weekly::NoReset { pct } => format!("{}{}", bar::PAST, bar::bar(pct)),
+        // Stale (cache not refreshed across the reset): same honesty rule as D7.
+        Weekly::Stale { .. } => format!("{}·······", bar::GREY),
+        // Same colouring policy as the total: grey past days, plain today unless
+        // ahead of pace. Purple (not yellow) marks ahead-of-pace for Fable.
+        Weekly::Live(w) => spark_cells(&w.daily, w.today, bar::scoped_color(w.pct, w.pace()), bar::PAST),
     }
-
-    let cycle_start = cycle::cycle_start_for_reset(reset_ts, history);
-    let cycle_len = (reset_ts - cycle_start).max(1);
-    let idx = cycle::bucket_idx(now_ts, cycle_start, cycle_len);
-
-    let mut display = match cycle::match_cycle(reset_ts, history) {
-        Some(m) => {
-            cycle::record_observation(&mut history.cycles[m].scoped, idx, pct);
-            history.cycles[m].scoped
-        }
-        None => {
-            let mut b = [None; 7];
-            b[idx] = Some(pct);
-            b
-        }
-    };
-    cycle::forward_fill(&mut display, idx);
-
-    let elapsed_pct = ((now_ts - cycle_start) * 100 / cycle_len) as i32;
-    let delta = (pct as i32) - elapsed_pct;
-    // Same colouring policy as the total: grey past days, plain today unless
-    // ahead of pace. Purple (not yellow) marks ahead-of-pace for Fable.
-    spark_cells(&display, idx, bar::scoped_color(pct, delta), bar::PAST)
 }
 
 /// Strip "claude-" prefix and version suffix from a full model ID.
