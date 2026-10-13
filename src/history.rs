@@ -17,6 +17,11 @@ pub struct Cycle {
     pub reset: i64,
     /// Per-day buckets. None = no data for that day.
     pub buckets: [Option<u8>; 7],
+    /// Per-day buckets for the model-scoped weekly cap (Fable), recorded
+    /// on the same day grid as `buckets`. Absent in history files written
+    /// before the scoped cap was tracked, hence the default.
+    #[serde(default)]
+    pub scoped: [Option<u8>; 7],
 }
 
 impl History {
@@ -56,6 +61,13 @@ mod tests {
     }
 
     #[test]
+    fn parse_history_without_scoped_defaults_it_to_empty() {
+        let json = r#"{"cycles":[{"reset":1,"buckets":[1,null,null,null,null,null,null]}]}"#;
+        let h = History::parse(json).unwrap();
+        assert_eq!(h.cycles[0].scoped, [None; 7]);
+    }
+
+    #[test]
     fn parse_empty_object_is_empty_history() {
         let h = History::parse("{}").unwrap();
         assert!(h.cycles.is_empty());
@@ -67,6 +79,7 @@ mod tests {
             cycles: vec![Cycle {
                 reset: 1_777_446_000,
                 buckets: [Some(12), None, Some(22), None, None, Some(38), Some(54)],
+                scoped: [None, None, Some(30), None, None, None, Some(77)],
             }],
         };
         let json = h.to_json();
@@ -77,7 +90,7 @@ mod tests {
     #[test]
     fn to_json_emits_cycles_key_with_reset_value() {
         let h = History {
-            cycles: vec![Cycle { reset: 42, buckets: [None; 7] }],
+            cycles: vec![Cycle { reset: 42, buckets: [None; 7], scoped: [None; 7] }],
         };
         let json = h.to_json();
         assert!(json.contains("\"cycles\""), "json missing 'cycles' key: {json}");

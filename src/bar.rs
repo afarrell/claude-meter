@@ -21,6 +21,12 @@ pub const YELLOW_BOLD: &str = "\x1b[1;33m";
 pub const GREY: &str = "\x1b[90m";
 pub const DIM: &str = "\x1b[38;5;238m";
 pub const PAST: &str = "\x1b[38;5;241m";
+/// Ahead-of-pace warning for the model-scoped weekly cap (Fable): bold
+/// purple, standing in for the total sparkline's yellow. The Fable sparkline
+/// is otherwise coloured exactly like the total (grey past days, plain today
+/// on pace), so purple only ever means "over the limit for this point in
+/// the week".
+pub const FABLE_WARN: &str = "\x1b[1;38;5;135m";
 
 /// Color tier for the context-window bar.
 pub fn ctx_color(pct: u8) -> &'static str {
@@ -34,6 +40,16 @@ pub fn pace_color(delta: i32) -> &'static str {
     if delta > 30 { RED_BOLD }
     else if delta > 10 { YELLOW_BOLD }
     else { GREY }
+}
+
+/// Color tier for today's cell of the scoped (Fable) sparkline. Same
+/// policy and thresholds as the total sparkline's today cell: plain when on
+/// pace, red at >=90% or far ahead. The only difference is the "ahead of
+/// pace" tier, which is purple instead of yellow.
+pub fn scoped_color(pct: u8, delta: i32) -> &'static str {
+    if pct >= 90 || delta > 30 { RED_BOLD }
+    else if delta > 10 { FABLE_WARN }
+    else { RESET }
 }
 
 #[cfg(test)]
@@ -96,5 +112,25 @@ mod tests {
     fn pace_color_red_above_30() {
         assert_eq!(pace_color(31), RED_BOLD);
         assert_eq!(pace_color(100), RED_BOLD);
+    }
+
+    #[test]
+    fn scoped_color_plain_when_on_pace_or_behind() {
+        assert_eq!(scoped_color(0, -50), RESET);
+        assert_eq!(scoped_color(40, 0), RESET);
+        assert_eq!(scoped_color(89, 10), RESET);
+    }
+
+    #[test]
+    fn scoped_color_purple_above_10_through_30() {
+        assert_eq!(scoped_color(40, 11), FABLE_WARN);
+        assert_eq!(scoped_color(40, 30), FABLE_WARN);
+    }
+
+    #[test]
+    fn scoped_color_red_above_30_or_at_90() {
+        assert_eq!(scoped_color(40, 31), RED_BOLD);
+        assert_eq!(scoped_color(90, -80), RED_BOLD);
+        assert_eq!(scoped_color(100, 0), RED_BOLD);
     }
 }
