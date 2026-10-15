@@ -138,6 +138,24 @@ jobs:
             deterministically by a separate job upstream of this one. Focus
             your judgment on the PR content itself.
 
+            Execution constraint — you are running headless in CI: ending your
+            turn ends the run, and there is no later wake-up for pending
+            background work. Never end your turn while a spawned subagent is
+            still running: either run the review phases inline, or wait for
+            every subagent's result before concluding. Before emitting the
+            final JSON, confirm the review comment has actually been posted;
+            if it has not, post it first. The verdict JSON must be the very
+            last thing you produce, after all review work is complete — a
+            HOLD issued because your own subagents had not finished is a
+            process failure, not a review outcome.
+
+            Re-review rule: this workflow runs again on every push to the PR.
+            An earlier Claude review comment on this PR covers an older
+            commit, so it is not a reason to skip. Ignore any "already
+            reviewed" eligibility check, review the current head in full,
+            and post a fresh review comment. A HOLD issued only because an
+            earlier review exists is a process failure, not a review outcome.
+
       - name: Extract verdict
         id: verdict
         env:
