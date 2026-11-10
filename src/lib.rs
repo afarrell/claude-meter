@@ -11,10 +11,12 @@ pub mod bar;
 pub mod cache;
 pub mod cycle;
 pub mod history;
+pub mod live;
 pub mod state;
 
 pub use cache::{ApiCache, Limit, ModelScope, Scope, Window};
 pub use history::{Cycle, History};
+pub use live::{parse_rate_limits, RateLimits};
 pub use state::{snapshot, Snapshot};
 
 use state::{FiveHour, Weekly};
@@ -29,6 +31,9 @@ pub struct StatuslineInput {
     /// Columns available to this output (terminal width minus whatever the
     /// wrapper appends). `None` means unknown: always render one line.
     pub max_width: Option<usize>,
+    /// Claude Code's own usage figures from the payload; merged over the
+    /// cache's unscoped windows (see `live`).
+    pub rate_limits: RateLimits,
 }
 
 /// Render the full statusline. Mutates `history` in place to record the
@@ -43,6 +48,7 @@ pub fn render(
     history: &mut History,
 ) -> String {
     let now_ts = now.timestamp();
+    let cache = &cache.with_live(&input.rate_limits);
 
     let d7_out = render_d7(&cache.seven_day, history, now_ts);
     // No five-hour limit on the account: the bar is omitted, not zeroed.
@@ -80,22 +86,27 @@ const REASON_MAX: usize = 60;
 /// instead of the line silently going blank.
 pub fn render_degraded(input: &StatuslineInput, reason: &str) -> String {
     let ctx_pct = input.context_pct.min(100) as u8;
+    format!(
+        "{}{} {}{} {}",
+        bar::ctx_color(ctx_pct),
+        short_model(&input.model_id),
+        bar::bar(ctx_pct),
+        bar::RESET,
+        warning(reason)
+    )
+}
+
+/// A `⚠ usage: <reason>` notice: one line, cut to a bounded length. Shown
+/// alone by `render_degraded`, or appended to a normal render when the
+/// meters could still be drawn from another source.
+pub fn warning(reason: &str) -> String {
     let reason = reason.split_whitespace().collect::<Vec<_>>().join(" ");
     let shown = if reason.chars().count() > REASON_MAX {
         format!("{}…", reason.chars().take(REASON_MAX).collect::<String>())
     } else {
         reason
     };
-    format!(
-        "{}{} {}{} {}⚠ usage: {}{}",
-        bar::ctx_color(ctx_pct),
-        short_model(&input.model_id),
-        bar::bar(ctx_pct),
-        bar::RESET,
-        bar::YELLOW_BOLD,
-        shown,
-        bar::RESET
-    )
+    format!("{}⚠ usage: {}{}", bar::YELLOW_BOLD, shown, bar::RESET)
 }
 
 /// Emit 7 spark cells: DIM on-pace baseline for days without data, the
