@@ -14,6 +14,7 @@ fn input(pct: u32) -> StatuslineInput {
         context_pct: pct,
         cwd: "/tmp".into(),
         max_width: None,
+        rate_limits: Default::default(),
     }
 }
 
@@ -424,6 +425,30 @@ fn no_five_hour_limit_omits_the_bar_and_keeps_alignment() {
     assert_eq!(lines.len(), 2, "{out:?}");
     let d7_col = lines[0].chars().position(|c| c == ' ').unwrap() + 3;
     assert_eq!(lines[1].chars().take_while(|c| *c == ' ').count(), d7_col, "{lines:?}");
+}
+
+/// Claude Code's own weekly figure (stdin `rate_limits`) is merged over the
+/// cache: a higher reading in the same window is the newer one, so it is
+/// what gets drawn and recorded. The Fable cap still comes from the cache.
+#[test]
+fn stdin_rate_limits_update_the_weekly_total() {
+    let now = Utc.with_ymd_and_hms(2026, 9, 9, 12, 0, 0).unwrap();
+    let reset = "2026-09-16T07:00:00+00:00";
+    let cache = cache_with_scoped(7.0, 14.0, reset);
+
+    let mut live = input(35);
+    live.rate_limits.seven_day =
+        Some(claude_meter::Window { utilization: 20.0, resets_at: Some(reset.parse().unwrap()) });
+
+    let mut history = History::default();
+    let out = strip_ansi(&render(&live, now, &cache, &mut history));
+    assert_eq!(history.cycles[0].buckets[0], Some(20), "the live reading is recorded");
+    assert_eq!(history.cycles[0].scoped[0], Some(14), "the Fable cap is still the cache's");
+
+    let mut cache_only = History::default();
+    let plain = strip_ansi(&render(&input(35), now, &cache, &mut cache_only));
+    assert_eq!(cache_only.cycles[0].buckets[0], Some(7));
+    assert_ne!(out, plain, "the sparkline moved with the live reading");
 }
 
 /// A cache we can't use must not blank the line: the context bar stays and

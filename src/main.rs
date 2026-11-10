@@ -13,7 +13,9 @@
 
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
-use claude_meter::{render, render_degraded, snapshot, ApiCache, History, StatuslineInput};
+use claude_meter::{
+    parse_rate_limits, render, render_degraded, snapshot, warning, ApiCache, History, StatuslineInput,
+};
 use serde_json::Value;
 use std::env;
 use std::io::{self, Read, Write};
@@ -34,24 +36,14 @@ fn run(json_mode: bool) -> Result<()> {
     let cache_path = format!("{home}/.cache/claude-usage.json");
     let history_path = format!("{home}/.cache/claude-usage-history.json");
 
-    let cache = match load_cache(&cache_path) {
-        Ok(cache) => cache,
-        // The usage cache is an undocumented API's response and its shape
-        // changes. The statusline keeps the context bar and says why the
-        // usage meters are missing; `--json` consumers get the error.
-        Err(e) if !json_mode => {
-            eprintln!("claude-meter: {e:#}");
-            let input = parse_input(&read_stdin()?)?;
-            println!("{}", render_degraded(&input, &format!("{e:#}")));
-            return Ok(());
-        }
-        Err(e) => return Err(e),
-    };
-
+    let cache = load_cache(&cache_path);
     let history_json = std::fs::read_to_string(&history_path).unwrap_or_else(|_| "{}".into());
     let mut history = History::parse(&history_json).unwrap_or_default();
 
     let output = if json_mode {
+        // No stdin in this mode, so the cache is the only source: a
+        // consumer needs to know when it can't be read.
+        let cache = cache?;
         let cache_updated_at = std::fs::metadata(&cache_path)
             .and_then(|m| m.modified())
             .ok()
@@ -59,8 +51,34 @@ fn run(json_mode: bool) -> Result<()> {
         let state = snapshot(Utc::now(), &cache, &mut history, cache_updated_at);
         serde_json::to_string(&state)?
     } else {
-        let input = parse_input(&read_stdin()?)?;
-        render(&input, Utc::now(), &cache, &mut history)
+        let (input, stdin_problem) = parse_input(&read_stdin()?)?;
+        let mut problems: Vec<String> = stdin_problem.into_iter().collect();
+        // The usage cache is an undocumented API's response and its shape
+        // changes. Without it, draw what Claude Code's own figures allow
+        // (no Fable cap) and say why; with neither, keep the context bar.
+        let cache = match cache {
+            Ok(cache) => Some(cache),
+            Err(e) => {
+                problems.insert(0, format!("{e:#}"));
+                ApiCache::from_live(&input.rate_limits)
+            }
+        };
+        for problem in &problems {
+            eprintln!("claude-meter: {problem}");
+        }
+        match cache {
+            Some(cache) => {
+                let line = render(&input, Utc::now(), &cache, &mut history);
+                match problems.first() {
+                    Some(problem) => format!("{line} {}", warning(problem)),
+                    None => line,
+                }
+            }
+            None => {
+                println!("{}", render_degraded(&input, &problems[0]));
+                return Ok(());
+            }
+        }
     };
 
     let tmp_path = format!("{history_path}.tmp.{}", std::process::id());
@@ -83,11 +101,17 @@ fn read_stdin() -> Result<String> {
     Ok(s)
 }
 
-/// Parse the Claude Code statusline JSON payload tolerantly — unexpected
-/// fields shouldn't break us as the harness adds optional fields over time.
-fn parse_input(json: &str) -> Result<StatuslineInput> {
+/// Parse the Claude Code statusline JSON payload. Fields we don't read are
+/// ignored, so the harness can add to it. The second value is why
+/// `rate_limits` couldn't be used, when it was present but misshapen.
+fn parse_input(json: &str) -> Result<(StatuslineInput, Option<String>)> {
     let v: Value = serde_json::from_str(json).context("parsing stdin JSON")?;
-    Ok(StatuslineInput {
+    // A `rate_limits` we can't read is reported, and the cache carries on alone.
+    let (rate_limits, problem) = match parse_rate_limits(&v) {
+        Ok(limits) => (limits, None),
+        Err(problem) => (Default::default(), Some(problem)),
+    };
+    let input = StatuslineInput {
         session_id: v
             .get("session_id")
             .and_then(|x| x.as_str())
@@ -111,7 +135,9 @@ fn parse_input(json: &str) -> Result<StatuslineInput> {
             .unwrap_or("")
             .to_string(),
         max_width: max_width(),
-    })
+        rate_limits,
+    };
+    Ok((input, problem))
 }
 
 /// Columns this output may use: `COLUMNS` (Claude Code sets it to the

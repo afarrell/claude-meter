@@ -156,6 +156,24 @@ It reads `~/.cache/claude-usage.json` (Anthropic API response cache) and
 history with the current observation, and prints the rendered ANSI line to
 stdout.
 
+### Where the figures come from
+
+Two sources, merged per window:
+
+- **Claude Code's `rate_limits`** in the stdin payload (`five_hour` and
+  `seven_day`, each `used_percentage` and `resets_at` in epoch seconds).
+  This is the documented source. It is absent for API-key users and before
+  a session's first response, and it has no per-model cap.
+- **The usage cache**, a saved response from Anthropic's undocumented usage
+  endpoint. It is the only source of the scoped (Fable) cap.
+
+Neither is always the fresher one (an idle session's stdin figure can be
+hours old), so within the same window the higher reading wins, and between
+different windows the one that resets later wins. If the cache is missing or
+has changed shape, the weekly total is still drawn from stdin, with the
+reason shown beside it. A `rate_limits` that is present but misshapen is
+named the same way, and the cache carries on alone.
+
 ## JSON output
 
 `claude-meter --json` ignores stdin and prints the computed meter state

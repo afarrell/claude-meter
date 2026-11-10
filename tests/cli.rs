@@ -46,7 +46,13 @@ fn json_mode_fails_loudly_without_a_cache() {
     assert!(out.stdout.is_empty());
 }
 
+const PAYLOAD: &str = r#"{"model":{"id":"claude-opus-4-7"},"context_window":{"used_percentage":35}}"#;
+
 fn statusline(home: &std::path::Path) -> std::process::Output {
+    statusline_with(home, PAYLOAD)
+}
+
+fn statusline_with(home: &std::path::Path, payload: &str) -> std::process::Output {
     use std::io::Write;
     let mut child = Command::new(env!("CARGO_BIN_EXE_claude-meter"))
         .env("HOME", home)
@@ -60,7 +66,7 @@ fn statusline(home: &std::path::Path) -> std::process::Output {
         .stdin
         .take()
         .unwrap()
-        .write_all(br#"{"model":{"id":"claude-opus-4-7"},"context_window":{"used_percentage":35}}"#)
+        .write_all(payload.as_bytes())
         .unwrap();
     child.wait_with_output().unwrap()
 }
@@ -88,4 +94,48 @@ fn statusline_mode_names_a_missing_cache() {
     let home = tempfile::tempdir().unwrap();
     let stdout = String::from_utf8_lossy(&statusline(home.path()).stdout).into_owned();
     assert!(stdout.contains("⚠ usage: reading cache"), "{stdout:?}");
+}
+
+const LIVE_PAYLOAD: &str = r#"{"model":{"id":"claude-opus-4-7"},"context_window":{"used_percentage":35},
+    "rate_limits":{"seven_day":{"used_percentage":45,"resets_at":4070908800}}}"#;
+
+/// With no usable cache, Claude Code's own figures still draw the weekly
+/// sparkline, the reason the cache failed is shown beside it, and the
+/// reading is recorded.
+#[test]
+fn statusline_mode_draws_from_stdin_rate_limits_when_the_cache_is_unusable() {
+    let home = tempfile::tempdir().unwrap();
+    let cache_dir = home.path().join(".cache");
+    std::fs::create_dir(&cache_dir).unwrap();
+    std::fs::write(cache_dir.join("claude-usage.json"), r#"{"seven_day": null}"#).unwrap();
+
+    let out = statusline_with(home.path(), LIVE_PAYLOAD);
+    assert!(out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let sparks = stdout.chars().filter(|c| "▁▂▃▄▅▆▇█".contains(*c)).count();
+    assert_eq!(sparks, 1 + 7, "context bar and the weekly sparkline: {stdout:?}");
+    assert!(stdout.contains("⚠ usage: parsing cache"), "reason shown: {stdout:?}");
+    let history = std::fs::read_to_string(cache_dir.join("claude-usage-history.json")).unwrap();
+    assert!(history.contains("45"), "live reading persisted: {history}");
+}
+
+/// A `rate_limits` whose shape changed is named on the line; the cache
+/// still draws the meters.
+#[test]
+fn statusline_mode_names_a_misshapen_rate_limits_and_keeps_the_cache() {
+    let home = tempfile::tempdir().unwrap();
+    let cache_dir = home.path().join(".cache");
+    std::fs::create_dir(&cache_dir).unwrap();
+    std::fs::write(
+        cache_dir.join("claude-usage.json"),
+        r#"{"seven_day": {"utilization": 42.0, "resets_at": "2099-01-01T00:00:00+00:00"}}"#,
+    )
+    .unwrap();
+    let payload = r#"{"model":{"id":"claude-opus-4-7"},"rate_limits":{"seven_day":{"utilization":45}}}"#;
+
+    let out = statusline_with(home.path(), payload);
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("⚠ usage: stdin rate_limits.seven_day.used_percentage is not a number"), "{stdout:?}");
+    assert_eq!(stdout.chars().filter(|c| "▁▂▃▄▅▆▇█".contains(*c)).count(), 1 + 7, "{stdout:?}");
+    assert!(String::from_utf8_lossy(&out.stderr).contains("used_percentage"));
 }
