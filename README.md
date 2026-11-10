@@ -184,9 +184,11 @@ always exits 0.
 - `schema`: contract version. It changes only when a field is renamed,
   removed or changes meaning; new fields can appear without a bump.
 - `cache_updated_at`: when the usage cache was last written (file mtime).
+- `five_hour`: `null` on accounts the API reports no five-hour limit for
+  (the statusline then omits that bar).
 - `scoped`: the model-scoped weekly cap, or `null` on accounts without one.
   It runs on the total window's cycle and day grid.
-- Every window has the same keys. `used_pct` is always set.
+- Every window that is present has the same keys. `used_pct` is always set.
 - `stale`: the reset time has passed without a cache refresh, so
   `used_pct` may belong to the previous window; pace fields are `null`.
 - `elapsed_pct`: share of the window gone. `pace` is `used_pct - elapsed_pct`,

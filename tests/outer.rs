@@ -19,10 +19,10 @@ fn input(pct: u32) -> StatuslineInput {
 
 fn cache_with_d7(pct: f64, resets_at: &str) -> ApiCache {
     ApiCache {
-        five_hour: claude_meter::Window {
+        five_hour: Some(claude_meter::Window {
             utilization: 0.0,
             resets_at: Some("2030-01-01T00:00:00+00:00".parse().unwrap()),
-        },
+        }),
         seven_day: claude_meter::Window {
             utilization: pct,
             resets_at: Some(resets_at.parse().unwrap()),
@@ -394,6 +394,36 @@ fn narrow_terminal_wraps_fable_under_d7() {
     let d7_col = lines[0].chars().position(|c| c == ' ').unwrap() + 4;
     assert_eq!(lines[1].chars().take_while(|c| *c == ' ').count(), d7_col, "{lines:?}");
     assert_eq!(lines[1].trim_start().chars().count(), 7);
+}
+
+/// Regression 2026-11: the API sends `five_hour: null` for accounts with no
+/// session limit. The bar is dropped (`<model> <ctx-bar> <d7> <fable>`), the
+/// rest of the line is unchanged, and a wrapped Fable row still starts under
+/// the total sparkline, one column further left.
+#[test]
+fn no_five_hour_limit_omits_the_bar_and_keeps_alignment() {
+    let now = Utc.with_ymd_and_hms(2026, 9, 9, 12, 0, 0).unwrap();
+    let mut cache = cache_with_scoped(7.0, 14.0, "2026-09-16T07:00:00+00:00");
+    cache.five_hour = None;
+
+    // "opus" + " " + 1 meter + " " + 7 + " " + 7 = 22 columns on one line.
+    let mut wide = input(35);
+    wide.max_width = Some(22);
+    let out = strip_ansi(&render(&wide, now, &cache, &mut History::default()));
+    assert!(!out.contains('\n') && !out.contains("  "), "one clean line: {out:?}");
+    let parts: Vec<&str> = out.split(' ').collect();
+    assert_eq!(parts.len(), 4, "model, ctx, total, Fable: {parts:?}");
+    assert_eq!(parts[1].chars().count(), 1, "ctx bar alone, no h5: {:?}", parts[1]);
+    assert_eq!(parts[2].chars().count(), 7);
+    assert_eq!(parts[3].chars().count(), 7);
+
+    let mut narrow = input(35);
+    narrow.max_width = Some(21);
+    let out = strip_ansi(&render(&narrow, now, &cache, &mut History::default()));
+    let lines: Vec<&str> = out.split('\n').collect();
+    assert_eq!(lines.len(), 2, "{out:?}");
+    let d7_col = lines[0].chars().position(|c| c == ' ').unwrap() + 3;
+    assert_eq!(lines[1].chars().take_while(|c| *c == ' ').count(), d7_col, "{lines:?}");
 }
 
 /// Strip ANSI escape sequences (color codes) from a string for layout testing.

@@ -45,7 +45,8 @@ pub fn render(
     let now_ts = now.timestamp();
 
     let d7_out = render_d7(&cache.seven_day, history, now_ts);
-    let h5_out = render_h5(&cache.five_hour, now_ts);
+    // No five-hour limit on the account: the bar is omitted, not zeroed.
+    let h5_out = cache.five_hour.as_ref().map(|w| render_h5(w, now_ts)).unwrap_or_default();
     // Model-scoped weekly cap (Fable's half-allowance) as its own sparkline.
     // Absent on accounts without one: the line is then the pre-scoped layout.
     let scoped_out = cache
@@ -59,8 +60,8 @@ pub fn render(
     let line = format!("{}{}{}{} {}{}", ctx_out, bar::RESET, h5_out, bar::RESET, d7_out, bar::RESET);
     let Some(scoped_out) = scoped_out else { return line };
 
-    // `<model> <ctx><h5> ` precedes the D7 sparkline.
-    let d7_col = model_short.chars().count() + 4;
+    // `<model> <ctx><h5> ` precedes the D7 sparkline (`<h5>` only if present).
+    let d7_col = model_short.chars().count() + 3 + usize::from(cache.five_hour.is_some());
     let one_line_width = d7_col + 7 + 1 + 7;
     match input.max_width {
         // Too narrow for both sparklines: Fable wraps onto a second row,

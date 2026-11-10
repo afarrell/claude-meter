@@ -10,7 +10,10 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ApiCache {
-    pub five_hour: Window,
+    /// `null` (or absent) when the account has no five-hour session limit:
+    /// the API stopped reporting one for some plans in 2026-10.
+    #[serde(default)]
+    pub five_hour: Option<Window>,
     pub seven_day: Window,
     /// The newer `limits[]` array. Absent on older cache files and on
     /// accounts without model-scoped limits — always optional.
@@ -117,7 +120,25 @@ mod tests {
         assert_eq!(c.scoped_weekly_label(), Some("Fable"));
         // Unscoped windows untouched.
         assert_eq!(c.seven_day.utilization, 7.0);
-        assert_eq!(c.five_hour.utilization, 36.0);
+        assert_eq!(c.five_hour.unwrap().utilization, 36.0);
+    }
+
+    /// Regression: the API began sending `"five_hour": null` (no session
+    /// limit, and no `session` entry in `limits[]`). That must parse, or
+    /// the whole statusline falls back to the wrapper's bare line.
+    #[test]
+    fn null_or_absent_five_hour_parses() {
+        let null = r#"{"five_hour":null,
+            "seven_day":{"utilization":43.0,"resets_at":"2026-11-11T07:00:00.416384+00:00"},
+            "limits":[{"kind":"weekly_all","percent":43},
+                      {"kind":"weekly_scoped","percent":30,"scope":{"model":{"display_name":"Fable"}}}]}"#;
+        let c = ApiCache::parse(null).unwrap();
+        assert!(c.five_hour.is_none());
+        assert_eq!(c.seven_day.utilization, 43.0);
+        assert_eq!(c.scoped_weekly().unwrap().utilization, 30.0);
+
+        let absent = r#"{"seven_day":{"utilization":2.0}}"#;
+        assert!(ApiCache::parse(absent).unwrap().five_hour.is_none());
     }
 
     #[test]
