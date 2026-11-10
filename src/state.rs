@@ -145,7 +145,8 @@ pub struct Snapshot {
     pub generated_at: DateTime<Utc>,
     /// When the usage cache was last written; `None` if unknown.
     pub cache_updated_at: Option<DateTime<Utc>>,
-    pub five_hour: WindowJson,
+    /// `None` on accounts the API reports no five-hour limit for.
+    pub five_hour: Option<WindowJson>,
     pub seven_day: WindowJson,
     /// The model-scoped weekly cap, or `None` on accounts without one.
     pub scoped: Option<WindowJson>,
@@ -226,8 +227,10 @@ pub fn snapshot(
     let now_ts = now.timestamp();
     let d7 = &cache.seven_day;
     let seven_day = WindowJson::from_weekly(weekly(d7, history, now_ts), d7.resets_at);
-    let five_hour =
-        WindowJson::from_five_hour(five_hour(&cache.five_hour, now_ts), cache.five_hour.resets_at);
+    let five_hour = cache
+        .five_hour
+        .as_ref()
+        .map(|w| WindowJson::from_five_hour(five_hour(w, now_ts), w.resets_at));
     let scoped = cache.scoped_weekly().map(|w| WindowJson {
         label: cache.scoped_weekly_label().map(str::to_string),
         // The scoped cap runs on the total window's cycle (see `scoped`).
@@ -262,7 +265,7 @@ mod tests {
 
     fn cache(h5: Window, d7: Window, scoped: Option<(f64, &str)>) -> ApiCache {
         ApiCache {
-            five_hour: h5,
+            five_hour: Some(h5),
             seven_day: d7,
             limits: scoped
                 .map(|(pct, name)| Limit {
@@ -326,9 +329,10 @@ mod tests {
         assert_eq!(s.seven_day.today, Some(3));
         assert_eq!(s.seven_day.cycle_start, Some(at(START)));
         assert_eq!(s.seven_day.label, None);
-        assert_eq!(s.five_hour.elapsed_pct, Some(50));
-        assert_eq!(s.five_hour.pace, Some(-20));
-        assert_eq!(s.five_hour.daily, None, "five-hour has no day grid");
+        let h5 = s.five_hour.expect("five-hour window present");
+        assert_eq!(h5.elapsed_pct, Some(50));
+        assert_eq!(h5.pace, Some(-20));
+        assert_eq!(h5.daily, None, "five-hour has no day grid");
 
         let f = s.scoped.expect("scoped cap present");
         assert_eq!(f.label.as_deref(), Some("Fable"));
@@ -354,11 +358,25 @@ mod tests {
     fn snapshot_stale_week_keeps_reading_and_flags_it() {
         let c = cache(window(5.0, Some(RESET)), window(42.0, Some(RESET)), Some((20.0, "Fable")));
         let s = snapshot(at(RESET + 3_600), &c, &mut History::default(), None);
-        assert!(s.seven_day.stale && s.five_hour.stale);
+        assert!(s.seven_day.stale && s.five_hour.unwrap().stale);
         assert_eq!(s.seven_day.used_pct, 42);
         assert_eq!(s.seven_day.resets_at, Some(at(RESET)));
         assert_eq!(s.seven_day.daily, None);
         assert!(s.scoped.unwrap().stale);
+    }
+
+    /// No five-hour limit on the account: the key stays, its value is null,
+    /// and the weekly windows are computed as usual.
+    #[test]
+    fn snapshot_without_five_hour_window_is_null() {
+        let mut c = cache(window(0.0, None), window(62.0, Some(RESET)), Some((25.0, "Fable")));
+        c.five_hour = None;
+        let s = snapshot(at(START + cycle::SEVEN_DAYS_S / 2), &c, &mut History::default(), None);
+        let v = serde_json::to_value(&s).unwrap();
+        assert!(v.as_object().unwrap().contains_key("five_hour"));
+        assert!(v["five_hour"].is_null());
+        assert_eq!(v["seven_day"]["used_pct"], 62);
+        assert_eq!(v["scoped"]["used_pct"], 25);
     }
 
     /// Pins the contract's key set: renaming or dropping a key breaks
