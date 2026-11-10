@@ -71,6 +71,33 @@ pub fn render(
     }
 }
 
+/// Longest failure reason shown on the statusline before it is cut.
+const REASON_MAX: usize = 60;
+
+/// Render when the usage cache can't be read or no longer has the shape we
+/// expect. The context bar doesn't depend on the cache, so it stays; the
+/// reason takes the sparklines' place, so the failure says what it is
+/// instead of the line silently going blank.
+pub fn render_degraded(input: &StatuslineInput, reason: &str) -> String {
+    let ctx_pct = input.context_pct.min(100) as u8;
+    let reason = reason.split_whitespace().collect::<Vec<_>>().join(" ");
+    let shown = if reason.chars().count() > REASON_MAX {
+        format!("{}…", reason.chars().take(REASON_MAX).collect::<String>())
+    } else {
+        reason
+    };
+    format!(
+        "{}{} {}{} {}⚠ usage: {}{}",
+        bar::ctx_color(ctx_pct),
+        short_model(&input.model_id),
+        bar::bar(ctx_pct),
+        bar::RESET,
+        bar::YELLOW_BOLD,
+        shown,
+        bar::RESET
+    )
+}
+
 /// Emit 7 spark cells: DIM on-pace baseline for days without data, the
 /// `today` colour for the current bucket, `past` for earlier observed days.
 fn spark_cells(display: &[Option<u8>; 7], idx: usize, today: &str, past: &str) -> String {

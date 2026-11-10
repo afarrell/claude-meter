@@ -163,7 +163,8 @@ instead, for other front ends (a menu bar app, the Stream Deck plugin) that
 want the pace maths without reimplementing it. It reads the same cache and
 records today's reading in the history file, just as a statusline render
 does. It exits 1 if it can't read or parse the cache; the statusline mode
-always exits 0.
+always exits 0: if the cache is missing or has changed shape it still
+prints the context bar, followed by `⚠ usage: <reason>` in place of the meters.
 
 ```json
 {

@@ -13,7 +13,7 @@
 
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
-use claude_meter::{render, snapshot, ApiCache, History, StatuslineInput};
+use claude_meter::{render, render_degraded, snapshot, ApiCache, History, StatuslineInput};
 use serde_json::Value;
 use std::env;
 use std::io::{self, Read, Write};
@@ -34,8 +34,19 @@ fn run(json_mode: bool) -> Result<()> {
     let cache_path = format!("{home}/.cache/claude-usage.json");
     let history_path = format!("{home}/.cache/claude-usage-history.json");
 
-    let cache_json = std::fs::read_to_string(&cache_path).context("reading cache")?;
-    let cache = ApiCache::parse(&cache_json).context("parsing cache")?;
+    let cache = match load_cache(&cache_path) {
+        Ok(cache) => cache,
+        // The usage cache is an undocumented API's response and its shape
+        // changes. The statusline keeps the context bar and says why the
+        // usage meters are missing; `--json` consumers get the error.
+        Err(e) if !json_mode => {
+            eprintln!("claude-meter: {e:#}");
+            let input = parse_input(&read_stdin()?)?;
+            println!("{}", render_degraded(&input, &format!("{e:#}")));
+            return Ok(());
+        }
+        Err(e) => return Err(e),
+    };
 
     let history_json = std::fs::read_to_string(&history_path).unwrap_or_else(|_| "{}".into());
     let mut history = History::parse(&history_json).unwrap_or_default();
@@ -59,6 +70,11 @@ fn run(json_mode: bool) -> Result<()> {
     io::stdout().write_all(output.as_bytes())?;
     io::stdout().write_all(b"\n")?;
     Ok(())
+}
+
+fn load_cache(path: &str) -> Result<ApiCache> {
+    let json = std::fs::read_to_string(path).context("reading cache")?;
+    ApiCache::parse(&json).context("parsing cache")
 }
 
 fn read_stdin() -> Result<String> {

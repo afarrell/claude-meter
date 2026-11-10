@@ -426,6 +426,20 @@ fn no_five_hour_limit_omits_the_bar_and_keeps_alignment() {
     assert_eq!(lines[1].chars().take_while(|c| *c == ' ').count(), d7_col, "{lines:?}");
 }
 
+/// A cache we can't use must not blank the line: the context bar stays and
+/// the reason is shown, on one line, cut to a bounded length.
+#[test]
+fn degraded_render_keeps_context_bar_and_names_the_reason() {
+    let out = strip_ansi(&claude_meter::render_degraded(&input(35), "parsing cache: missing field `seven_day`"));
+    assert_eq!(out, "opus ▃ ⚠ usage: parsing cache: missing field `seven_day`");
+
+    let long = format!("parsing cache:\n{}", "x".repeat(200));
+    let out = strip_ansi(&claude_meter::render_degraded(&input(35), &long));
+    assert!(!out.contains('\n'), "{out:?}");
+    assert!(out.ends_with('…'), "{out:?}");
+    assert_eq!(out.chars().count(), "opus ▃ ⚠ usage: ".chars().count() + 61);
+}
+
 /// Strip ANSI escape sequences (color codes) from a string for layout testing.
 fn strip_ansi(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
